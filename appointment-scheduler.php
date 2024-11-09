@@ -90,11 +90,9 @@ function get_schedule() {
 add_action('wp_ajax_nopriv_submit_appointment', 'submit_appointment');
 add_action('wp_ajax_submit_appointment', 'submit_appointment');
 
+// Handle form submission
 function submit_appointment() {
     global $wpdb;
-
-    // Log incoming data for debugging
-    error_log('Incoming POST data: ' . print_r($_POST, true));
 
     // Sanitize and assign form fields
     $user_name = sanitize_text_field($_POST['user_name']);
@@ -102,15 +100,17 @@ function submit_appointment() {
     $country = sanitize_text_field($_POST['country']);
     $email = sanitize_email($_POST['email']);
     $unix_timestamp = sanitize_text_field($_POST['unix_timestamp']);
+    $page_url = sanitize_text_field($_POST['page_url']); // Retrieve the page URL
 
-    // Prepare email verification link
+    // Prepare email verification link with page_url as a parameter
     $verification_token = wp_generate_password(20, false); // Generate a random token
     $verification_url = add_query_arg(
         [
             'verify_appointment' => 1,
-            'token' => $verification_token
+            'token' => $verification_token,
+            'page_url' => urlencode($page_url) // Pass page_url in the link
         ],
-        home_url()
+        $page_url // Use the captured page URL
     );
 
     // Insert appointment into pending table
@@ -142,6 +142,51 @@ function submit_appointment() {
         wp_send_json_error('Email sending failed.');
     }
 }
+
+// Handle verification link click
+add_action('init', 'handle_appointment_verification');
+
+function handle_appointment_verification() {
+    if (isset($_GET['verify_appointment']) && $_GET['verify_appointment'] == 1 && isset($_GET['token'])) {
+        global $wpdb;
+        $token = sanitize_text_field($_GET['token']);
+        $page_url = isset($_GET['page_url']) ? urldecode($_GET['page_url']) : home_url();
+
+        // Retrieve the pending appointment using the token
+        $appointment = $wpdb->get_row(
+            $wpdb->prepare("SELECT * FROM " . EVENT_SCHEDULER_PENDING_TABLE . " WHERE verification_token = %s", $token)
+        );
+
+        if ($appointment) {
+            // Move the appointment to the confirmed table
+            $wpdb->insert(
+                EVENT_SCHEDULER_TABLE,
+                [
+                    'user_name' => $appointment->user_name,
+                    'city' => $appointment->city,
+                    'country' => $appointment->country,
+                    'appointment_datetime' => $appointment->appointment_datetime,
+                    'email' => $appointment->email
+                ]
+            );
+
+            // Remove the appointment from the pending table
+            $wpdb->delete(
+                EVENT_SCHEDULER_PENDING_TABLE,
+                ['id' => $appointment->id]
+            );
+
+            // Redirect to the specific page with success parameter
+            wp_redirect(add_query_arg('verified', 'success', $page_url));
+            exit;
+        } else {
+            // Redirect to the specific page with error parameter if token is invalid
+            wp_redirect(add_query_arg('verified', 'error', $page_url));
+            exit;
+        }
+    }
+}
+
 
 // Enqueue scripts and styles
 add_action('wp_enqueue_scripts', 'event_scheduler_enqueue_scripts');
