@@ -100,6 +100,7 @@ function submit_appointment() {
     $country = sanitize_text_field($_POST['country']);
     $email = sanitize_email($_POST['email']);
     $unix_timestamp = sanitize_text_field($_POST['unix_timestamp']);
+    $local_datetime = sanitize_text_field($_POST['local_datetime']); // Retrieve local date and time for email
     $page_url = sanitize_text_field($_POST['page_url']); // Retrieve the page URL
 
     // Prepare email verification link with page_url as a parameter
@@ -133,9 +134,7 @@ function submit_appointment() {
         return;
     }
 
-    // Send verification email with Dutch message
-    $appointment_datetime = date_i18n('j F Y, H:i', $unix_timestamp); // Format date and time
-
+    // Send verification email with Dutch message and local time
     $email_subject = "Bevestiging van uw aanmelding";
     $email_message = "Beste $user_name,
 
@@ -146,11 +145,10 @@ function submit_appointment() {
     - Naam: $user_name
     - Stad: $city
     - Land: $country
-    - Datum: $appointment_datetime
+    - Datum en tijd: $local_datetime
 
     Link om te bevestigen: $verification_url
 
-    
     Mocht u vragen hebben of de afspraak willen wijzigen, neem dan gerust contact op.
 
     Met vriendelijke groet";
@@ -162,8 +160,8 @@ function submit_appointment() {
     } else {
         wp_send_json_error('E-mail kon niet worden verzonden.');
     }
-
 }
+
 
 // Handle verification link click
 add_action('init', 'handle_appointment_verification');

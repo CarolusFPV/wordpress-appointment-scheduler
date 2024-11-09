@@ -85,12 +85,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 const unixTimestamp = this.getAttribute('data-unix');
                 console.log(`Open button clicked for timestamp: ${unixTimestamp}`);
 
-                const userFriendlyDate = new Date(unixTimestamp * 1000).toLocaleString(); // Convert to user-friendly format
+                // Convert the UNIX timestamp to a local, user-friendly date string
+                const userFriendlyDate = new Date(unixTimestamp * 1000).toLocaleString(); // Local date and time
                 console.log(`User-friendly date: ${userFriendlyDate}`);
 
-                // Populate the form with the date and time
-                document.getElementById('appointment_datetime').value = userFriendlyDate; // Set to readable format
-                document.getElementById('unix_timestamp').value = unixTimestamp; // Save the UNIX timestamp for submission
+                // Populate the form with both UNIX timestamp and local date/time
+                document.getElementById('appointment_datetime').value = userFriendlyDate; // Displayed in form
+                document.getElementById('unix_timestamp').value = unixTimestamp; // For database storage
+                document.getElementById('local_datetime').value = userFriendlyDate; // For email display
 
                 // Show the appointment form
                 const appointmentFormContainer = document.getElementById('appointment-form-container');
@@ -103,6 +105,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+
     // Function to format time for display
     function formatTime(minutes) {
         const hour = String(Math.floor(minutes / 60)).padStart(2, '0');
@@ -113,9 +116,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Function to find appointments
     function findAppointment(appointments, minutes) {
         for (const appointment of appointments) {
-            const appointmentTime = new Date(appointment.appointment_datetime * 1000);
-            const appointmentMinutes = appointmentTime.getUTCHours() * 60 + appointmentTime.getUTCMinutes();
-
+            const appointmentTime = new Date(appointment.appointment_datetime * 1000); // Local timezone by default
+            const appointmentMinutes = appointmentTime.getHours() * 60 + appointmentTime.getMinutes();
+    
             if (appointmentMinutes === minutes) {
                 return `${appointment.user_name}, ${appointment.city}, ${appointment.country}`;
             }

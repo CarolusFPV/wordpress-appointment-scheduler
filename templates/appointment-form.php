@@ -16,8 +16,8 @@
         <input type="hidden" id="unix_timestamp" name="unix_timestamp"> <!-- Hidden field for timestamp -->
         <input type="text" id="appointment_datetime" name="appointment_datetime" placeholder="Date and Time" readonly required>
 
-        <!-- Hidden field to store the current page URL -->
         <input type="hidden" id="page_url" name="page_url" value="<?php echo esc_url('http://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI']); ?>">
+        <input type="hidden" id="local_datetime" name="local_datetime">
 
         <input type="submit" id="submit_appointment" value="Aanmelden">
     </form>
