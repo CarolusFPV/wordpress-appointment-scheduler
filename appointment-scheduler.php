@@ -133,14 +133,36 @@ function submit_appointment() {
         return;
     }
 
-    // Send verification email with clickable link
-    $email_sent = wp_mail($email, 'Appointment Verification', "Please verify your appointment here: " . $verification_url);
+    // Send verification email with Dutch message
+    $appointment_datetime = date_i18n('j F Y, H:i', $unix_timestamp); // Format date and time
+
+    $email_subject = "Bevestiging van uw aanmelding";
+    $email_message = "Beste $user_name,
+
+    Hartelijk dank voor uw aanmelding! 
+    Gelieve op de onderstaande link te klikken om uw aanmelding te bevestigen.
+
+    Afspraakgegevens:
+    - Naam: $user_name
+    - Stad: $city
+    - Land: $country
+    - Datum: $appointment_datetime
+
+    Link om te bevestigen: $verification_url
+
+    
+    Mocht u vragen hebben of de afspraak willen wijzigen, neem dan gerust contact op.
+
+    Met vriendelijke groet";
+
+    $email_sent = wp_mail($email, $email_subject, $email_message);
 
     if ($email_sent) {
         wp_send_json_success(); // Return success response
     } else {
-        wp_send_json_error('Email sending failed.');
+        wp_send_json_error('E-mail kon niet worden verzonden.');
     }
+
 }
 
 // Handle verification link click
