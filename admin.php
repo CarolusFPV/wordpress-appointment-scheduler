@@ -50,7 +50,7 @@ function custom_scheduler_settings_page() {
         <h2>Scheduler Settings</h2>
         <form method="post" action="">
             <h3>Custom CSS for Shortcode</h3>
-            <textarea name="event_scheduler_css" rows="10" cols="50"><?php echo esc_textarea($scheduler_css); ?></textarea>
+            <textarea name="event_scheduler_css" rows="20" cols="80"><?php echo esc_textarea($scheduler_css); ?></textarea>
             <p><input type="submit" name="save_scheduler_settings" value="Save Settings" class="button-primary"></p>
         </form>
     </div>

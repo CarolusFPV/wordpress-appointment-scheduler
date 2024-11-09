@@ -1,13 +1,21 @@
 <?php
 /*
 Plugin Name: Event Scheduler
-Description: Allow users to schedule a timeframe to take part of an event. The entire schedule is displayed in the calendar shortcode.
-Version: 2.6
+Description: Allow users to schedule a timeframe to take part of an event. The entire schedule is displayed in the [event_scheduler] shortcode.
+Version: 30
 Author: Casper Molhoek
-Current bugs:
-    - Upon clicking the link in the appointment verification email it opens an URL that just says 0, this also doesn't actually verifiy the appointment.
-      It should instead open the same page the appliction form was sent from. The [event_scheduler] shortcode should then open and throw an alert message that the appointment was scheduled succesfully
-    - Upon sumbitting the form the form menu should close and above the callender view a message should pop up that the application was sent successfully and to verify that they need to click the link sent to their email.
+ 
+Todo:
+- Upon submitting a form, display a message about clicking the link in the email
++ Fix date navigation in the callender form
+- Turn all messages and emails into a template based system for easy costumization
+- Fix admin menu appointment search function
++ Fix admin setting menu css code editor size
+- Add feature to allow an appointment to automatically be placed weekly, in a given period up to a year
++ Display Current time and timezone above callender.
+    this is to show what kind of timezone the callender is displaying to the user.
+    if a user messed up their own settings or is using a VPN, the timezone might be wrong for them.
+    This will be a quick check to see what is going on if someone complains about wrong times.
 */
 
 global $wpdb;
@@ -162,7 +170,6 @@ function submit_appointment() {
     }
 }
 
-
 // Handle verification link click
 add_action('init', 'handle_appointment_verification');
 
@@ -206,7 +213,6 @@ function handle_appointment_verification() {
         }
     }
 }
-
 
 // Enqueue scripts and styles
 add_action('wp_enqueue_scripts', 'event_scheduler_enqueue_scripts');
