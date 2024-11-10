@@ -2,20 +2,14 @@
 /*
 Plugin Name: Event Scheduler
 Description: Allow users to schedule a timeframe to take part of an event. The entire schedule is displayed in the [event_scheduler] shortcode.
-Version: 30
+Version: 3.0
 Author: Casper Molhoek
  
 Todo:
 - Upon submitting a form, display a message about clicking the link in the email
-+ Fix date navigation in the callender form
 - Turn all messages and emails into a template based system for easy costumization
 - Fix admin menu appointment search function
-+ Fix admin setting menu css code editor size
 - Add feature to allow an appointment to automatically be placed weekly, in a given period up to a year
-+ Display Current time and timezone above callender.
-    this is to show what kind of timezone the callender is displaying to the user.
-    if a user messed up their own settings or is using a VPN, the timezone might be wrong for them.
-    This will be a quick check to see what is going on if someone complains about wrong times.
 */
 
 global $wpdb;
