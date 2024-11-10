@@ -2,14 +2,13 @@
 /*
 Plugin Name: Event Scheduler
 Description: Allow users to schedule a timeframe to take part of an event. The entire schedule is displayed in the [event_scheduler] shortcode.
-Version: 3.0
+Version: 3.1
 Author: Casper Molhoek
  
 Todo:
-- Upon submitting a form, display a message about clicking the link in the email
-- Turn all messages and emails into a template based system for easy costumization
 - Fix admin menu appointment search function
 - Add feature to allow an appointment to automatically be placed weekly, in a given period up to a year
+- scheduler-loader.js loads on pages without the shortcode
 */
 
 global $wpdb;
@@ -102,18 +101,20 @@ function submit_appointment() {
     $country = sanitize_text_field($_POST['country']);
     $email = sanitize_email($_POST['email']);
     $unix_timestamp = sanitize_text_field($_POST['unix_timestamp']);
-    $local_datetime = sanitize_text_field($_POST['local_datetime']); // Retrieve local date and time for email
-    $page_url = sanitize_text_field($_POST['page_url']); // Retrieve the page URL
+    $local_datetime = sanitize_text_field($_POST['local_datetime']);
+    $page_url = sanitize_text_field($_POST['page_url']);
+
+    // Remove any query parameters from the base page URL
+    $base_url = strtok($page_url, '?');
 
     // Prepare email verification link with page_url as a parameter
-    $verification_token = wp_generate_password(20, false); // Generate a random token
+    $verification_token = wp_generate_password(20, false);
     $verification_url = add_query_arg(
         [
             'verify_appointment' => 1,
-            'token' => $verification_token,
-            'page_url' => urlencode($page_url) // Pass page_url in the link
+            'token' => $verification_token
         ],
-        $page_url // Use the captured page URL
+        $page_url
     );
 
     // Insert appointment into pending table
@@ -129,38 +130,45 @@ function submit_appointment() {
         ]
     );
 
-    // Check the result of the insert operation
     if ($result === false) {
-        error_log('Database insert error: ' . $wpdb->last_error);
-        wp_send_json_error('Database insert error.');
+        $error_message = get_message_template('appointment_submit_failed', [
+            'name' => $user_name,
+            'time' => $local_datetime,
+            'city' => $city,
+            'country' => $country,
+            'email' => $email,
+            'error message' => $wpdb->last_error
+        ]);
+        wp_send_json_error(['message' => $error_message]);
         return;
     }
 
-    // Send verification email with Dutch message and local time
+    // Send verification email
     $email_subject = "Bevestiging van uw aanmelding";
-    $email_message = "Beste $user_name,
-
-    Hartelijk dank voor uw aanmelding! 
-    Gelieve op de onderstaande link te klikken om uw aanmelding te bevestigen.
-
-    Afspraakgegevens:
-    - Naam: $user_name
-    - Stad: $city
-    - Land: $country
-    - Datum en tijd: $local_datetime
-
-    Link om te bevestigen: $verification_url
-
-    Mocht u vragen hebben of de afspraak willen wijzigen, neem dan gerust contact op.
-
-    Met vriendelijke groet";
+    $email_message = get_message_template('appointment_email_verification', [
+        'name' => $user_name,
+        'time' => $local_datetime,
+        'city' => $city,
+        'country' => $country,
+        'email' => $email,
+        'verify url' => $verification_url
+    ]);
 
     $email_sent = wp_mail($email, $email_subject, $email_message);
 
     if ($email_sent) {
-        wp_send_json_success(); // Return success response
+        // Load success message from the admin settings
+        $success_message = get_message_template('appointment_submit_success', [
+            'name' => $user_name,
+            'time' => $local_datetime,
+            'city' => $city,
+            'country' => $country,
+            'email' => $email
+        ]);
+
+        wp_send_json_success(['message' => $success_message]);
     } else {
-        wp_send_json_error('E-mail kon niet worden verzonden.');
+        wp_send_json_error(['message' => 'E-mail kon niet worden verzonden.']);
     }
 }
 
@@ -171,7 +179,9 @@ function handle_appointment_verification() {
     if (isset($_GET['verify_appointment']) && $_GET['verify_appointment'] == 1 && isset($_GET['token'])) {
         global $wpdb;
         $token = sanitize_text_field($_GET['token']);
-        $page_url = isset($_GET['page_url']) ? urldecode($_GET['page_url']) : home_url();
+
+        // Define the base URL of the page to avoid recursive redirects
+        $base_url = home_url('/calender/'); // Replace with the exact URL of your calendar page
 
         // Retrieve the pending appointment using the token
         $appointment = $wpdb->get_row(
@@ -197,12 +207,12 @@ function handle_appointment_verification() {
                 ['id' => $appointment->id]
             );
 
-            // Redirect to the specific page with success parameter
-            wp_redirect(add_query_arg('verified', 'success', $page_url));
+            // Redirect to the base page with a success parameter
+            wp_redirect(add_query_arg('verified', 'success', $base_url));
             exit;
         } else {
-            // Redirect to the specific page with error parameter if token is invalid
-            wp_redirect(add_query_arg('verified', 'error', $page_url));
+            // Redirect to the base page with an error parameter if the token is invalid
+            wp_redirect(add_query_arg('verified', 'error', $base_url));
             exit;
         }
     }
@@ -217,4 +227,13 @@ function event_scheduler_enqueue_scripts() {
         'ajaxurl' => admin_url('admin-ajax.php'), // Correctly set AJAX URL
         'interval' => get_option('event_scheduler_interval', 60)
     ));
+}
+
+// Helper function to retrieve a message template with replaced placeholders
+function get_message_template($template_name, $placeholders = []) {
+    $template = get_option($template_name . '_template', '');
+    foreach ($placeholders as $placeholder => $value) {
+        $template = str_replace('%' . $placeholder . '%', $value, $template);
+    }
+    return $template;
 }

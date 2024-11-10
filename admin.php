@@ -31,14 +31,87 @@ add_action('admin_menu', function() {
         'custom-scheduler-add-appointment', 
         'custom_scheduler_add_appointment_page'
     );
+
+    // Submenu for Message Templates
+    add_submenu_page(
+        'custom-scheduler-schedule', 
+        'Message Templates', 
+        'Message Templates', 
+        'manage_options', 
+        'custom-scheduler-message-templates', 
+        'custom_scheduler_message_templates_page'
+    );
 });
+
+// Default templates for each message
+function get_default_templates() {
+    return [
+        'appointment_submit_success' => "Thank you, %name%! Your appointment has been scheduled for %date% at %time% in %city%, %country%.",
+        'appointment_submit_failed' => "We're sorry, %name%. Your appointment could not be scheduled for %date% at %time%. Error: %error message%. Please try again.",
+        'appointment_scheduled' => "Hello %name%, your appointment for %date% at %time% in %city%, %country% is confirmed!",
+        'appointment_email_verification' => "Hi %name%, please verify your appointment scheduled for %date% at %time% in %city%, %country%. Click here to verify: %verify url%"
+    ];
+}
+
+// Message Templates Page
+function custom_scheduler_message_templates_page() {
+    // Define template options and their placeholders
+    $templates = [
+        'appointment_submit_success' => [
+            'label' => 'Appointment Submit Success Message',
+            'placeholders' => '%name%, %time%, %city%, %country%, %email%'
+        ],
+        'appointment_submit_failed' => [
+            'label' => 'Appointment Submit Failed Message',
+            'placeholders' => '%name%, %time%, %city%, %country%, %email%, %error message%'
+        ],
+        'appointment_scheduled' => [
+            'label' => 'Appointment Scheduled Message',
+            'placeholders' => '%name%, %time%, %city%, %country%'
+        ],
+        'appointment_email_verification' => [
+            'label' => 'Appointment Verification Email',
+            'placeholders' => '%name%, %time%, %city%, %country%, %email%, %verify url%'
+        ]
+    ];
+
+    // Load defaults if options do not exist
+    $default_templates = get_default_templates();
+    foreach ($templates as $option => $details) {
+        if (!get_option($option . '_template')) {
+            update_option($option . '_template', $default_templates[$option]);
+        }
+    }
+
+    // Handle saving each template
+    foreach ($templates as $option => $details) {
+        if (isset($_POST['save_' . $option])) {
+            update_option($option . '_template', wp_kses_post($_POST[$option . '_template'])); // using wp_kses_post for preserving placeholders
+            echo '<div class="updated"><p>' . $details['label'] . ' saved successfully.</p></div>';
+        }
+    }
+
+    ?>
+    <div class="wrap">
+        <h2>Message Templates</h2>
+        <form method="post" action="">
+            <?php foreach ($templates as $option => $details): 
+                $template_content = get_option($option . '_template', ''); ?>
+                <h3><?php echo esc_html($details['label']); ?></h3>
+                <p><strong>Placeholders:</strong> <?php echo esc_html($details['placeholders']); ?></p>
+                <textarea name="<?php echo esc_attr($option); ?>_template" rows="10" cols="80"><?php echo esc_textarea($template_content); ?></textarea>
+                <p><input type="submit" name="save_<?php echo esc_attr($option); ?>" value="Save <?php echo esc_html($details['label']); ?>" class="button-primary"></p>
+            <?php endforeach; ?>
+        </form>
+    </div>
+    <?php
+}
 
 // Scheduler Settings Page
 function custom_scheduler_settings_page() {
     // Handle saving the settings
     if (isset($_POST['save_scheduler_settings'])) {
-        update_option('event_scheduler_css', sanitize_textarea_field($_POST['event_scheduler_css']));
-
+        update_option('event_scheduler_css', sanitize_text_field($_POST['event_scheduler_css']));
         echo '<div class="updated"><p>Settings saved successfully.</p></div>';
     }
 

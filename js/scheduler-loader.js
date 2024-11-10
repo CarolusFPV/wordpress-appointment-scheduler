@@ -140,11 +140,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Handle form submission
     document.querySelector('.custom-scheduler-form').addEventListener('submit', function(event) {
         event.preventDefault();
-
+    
         const formData = new FormData(this);
         formData.delete('appointment_datetime');
         formData.append('action', 'submit_appointment');
-
+    
         fetch(scheduler_data.ajaxurl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -152,14 +152,21 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(response => response.json())
         .then(data => {
+            const formContainer = document.getElementById('appointment-form-container');
+    
+            // Replace the form content with the success or error message
             if (data.success) {
-                document.getElementById('appointment-form-container').style.display = 'none';
+                const formattedMessage = data.data.message.replace(/\n/g, '<br>');
+                formContainer.innerHTML = `<div class="appointment-message">${formattedMessage}</div>`;
             } else {
-                alert('There was an error scheduling your appointment. Please try again.');
+                const formattedMessage = (data.data.message || 'There was an error scheduling your appointment. Please try again.').replace(/\n/g, '<br>');
+                formContainer.innerHTML = `<div class="appointment-message">${formattedMessage}</div>`;
             }
         })
-        .catch(error => alert("An error occurred while submitting the form: " + error.message));
-    });
+        .catch(error => {
+            alert("An error occurred while submitting the form: " + error.message);
+        });
+    });    
 
     updateCalendarSections(currentDate);
 });
