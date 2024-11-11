@@ -80,11 +80,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
         let timeSlotsHtml = '';
         const totalMinutesInDay = 24 * 60;
+        const currentUnixTime = Math.floor(Date.now() / 1000);
 
         for (let minutes = 0; minutes < totalMinutesInDay; minutes += scheduleInterval) {
             const time = formatTime(minutes);
             const unixTime = Math.floor(new Date(section.dataset.date).setHours(Math.floor(minutes / 60), minutes % 60, 0) / 1000);
-            const appointmentText = findAppointment(appointments, minutes) || `<button class="open-slot" data-unix="${unixTime}">Open</button>`;
+            const isPastTime = unixTime < currentUnixTime;
+            const appointmentText = findAppointment(appointments, minutes) || (isPastTime ? "Open" : `<button class="open-slot" data-unix="${unixTime}">Open</button>`);
             timeSlotsHtml += `<tr><td>${time}</td><td>${appointmentText}</td></tr>`;
         }
 

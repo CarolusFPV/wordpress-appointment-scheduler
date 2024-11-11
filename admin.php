@@ -116,24 +116,29 @@ function custom_scheduler_message_templates_page() {
 function custom_scheduler_settings_page() {
     // Handle saving the settings
     if (isset($_POST['save_scheduler_settings'])) {
-        update_option('event_scheduler_css', sanitize_text_field($_POST['event_scheduler_css']));
+        update_option('event_scheduler_css', wp_unslash($_POST['event_scheduler_css']));
+        update_option('event_scheduler_interval', intval($_POST['event_scheduler_interval']));
         echo '<div class="updated"><p>Settings saved successfully.</p></div>';
     }
 
     // Retrieve current settings
     $scheduler_css = get_option('event_scheduler_css', '');
+    $scheduler_interval = get_option('event_scheduler_interval', 60); // Default to 60 minutes
 
     ?>
     <div class="wrap">
         <h2>Scheduler Settings</h2>
         <form method="post" action="">
             <h3>Custom CSS for Shortcode</h3>
-            <textarea name="event_scheduler_css" rows="20" cols="80"><?php echo esc_textarea($scheduler_css); ?></textarea>
+            <textarea name="event_scheduler_css" rows="20" cols="80" style="white-space: pre;"><?php echo esc_textarea($scheduler_css); ?></textarea>
+            <h3>Appointment Interval (Minutes)</h3>
+            <input type="number" name="event_scheduler_interval" value="<?php echo esc_attr($scheduler_interval); ?>" min="1" />
             <p><input type="submit" name="save_scheduler_settings" value="Save Settings" class="button-primary"></p>
         </form>
     </div>
     <?php
 }
+
 
 // Manually add appointments page
 function custom_scheduler_add_appointment_page() {

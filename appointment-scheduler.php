@@ -6,8 +6,8 @@ Version: 3.1
 Author: Casper Molhoek
  
 Todo:
-- Add cancelation link in email, in case they want to cancel in the future
 - Make sure server denies attempts at rescheduling a verified appointment
+- Add list of countries
 - Fix admin menu appointment search function
 - Add feature to allow an appointment to automatically be placed weekly, in a given period up to a year
 - scheduler-loader.js loads on pages without the shortcode
