@@ -49,7 +49,8 @@ function get_default_templates() {
         'appointment_submit_success' => "Thank you, %name%! Your appointment has been scheduled for %date% at %time% in %city%, %country%.",
         'appointment_submit_failed' => "We're sorry, %name%. Your appointment could not be scheduled for %date% at %time%. Error: %error message%. Please try again.",
         'appointment_scheduled' => "Hello %name%, your appointment for %date% at %time% in %city%, %country% is confirmed!",
-        'appointment_email_verification' => "Hi %name%, please verify your appointment scheduled for %date% at %time% in %city%, %country%. Click here to verify: %verify url%"
+        'appointment_email_verification' => "Hi %name%, please verify your appointment scheduled for %date% at %time% in %city%, %country%. Click here to verify: %verify url%",
+        'appointment_cancellation' => "Your appointment has been successfully cancelled. If you have any questions, please contact us."
     ];
 }
 
@@ -63,7 +64,7 @@ function custom_scheduler_message_templates_page() {
         ],
         'appointment_submit_failed' => [
             'label' => 'Appointment Submit Failed Message',
-            'placeholders' => '%name%, %time%, %city%, %country%, %email%, %error message%'
+            'placeholders' => '%name%, %time%, %city%, %country%, %email%, %error_message%'
         ],
         'appointment_scheduled' => [
             'label' => 'Appointment Scheduled Message',
@@ -71,7 +72,11 @@ function custom_scheduler_message_templates_page() {
         ],
         'appointment_email_verification' => [
             'label' => 'Appointment Verification Email',
-            'placeholders' => '%name%, %time%, %city%, %country%, %email%, %verify url%'
+            'placeholders' => '%name%, %time%, %city%, %country%, %email%, %verify_url%'
+        ],
+        'appointment_cancellation' => [
+            'label' => 'Appointment Cancellation Message',
+            'placeholders' => ''
         ]
     ];
 

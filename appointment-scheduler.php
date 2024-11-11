@@ -6,6 +6,8 @@ Version: 3.1
 Author: Casper Molhoek
  
 Todo:
+- Add cancelation link in email, in case they want to cancel in the future
+- Make sure server denies attempts at rescheduling a verified appointment
 - Fix admin menu appointment search function
 - Add feature to allow an appointment to automatically be placed weekly, in a given period up to a year
 - scheduler-loader.js loads on pages without the shortcode
@@ -40,6 +42,7 @@ function event_scheduler_create_tables() {
             country VARCHAR(100) NOT NULL,
             appointment_datetime INT(11) NOT NULL,
             email VARCHAR(100) NOT NULL,
+            cancellation_token VARCHAR(255) NOT NULL,
             PRIMARY KEY (id)
         ) $charset_collate;",
         EVENT_SCHEDULER_PENDING_TABLE => "CREATE TABLE IF NOT EXISTS " . EVENT_SCHEDULER_PENDING_TABLE . " (
@@ -50,8 +53,9 @@ function event_scheduler_create_tables() {
             appointment_datetime INT(11) NOT NULL,
             email VARCHAR(100) NOT NULL,
             verification_token VARCHAR(255) NOT NULL,
+            cancellation_token VARCHAR(255) NOT NULL,
             PRIMARY KEY (id)
-        ) $charset_collate;"
+        ) $charset_collate;",        
     ];
 
     require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
@@ -117,8 +121,9 @@ function submit_appointment() {
         $page_url
     );
 
-    // Insert appointment into pending table
-    $result = $wpdb->insert(
+    $cancellation_token = wp_generate_password(20, false);
+
+    $wpdb->insert(
         EVENT_SCHEDULER_PENDING_TABLE,
         [
             'user_name' => $user_name,
@@ -126,7 +131,8 @@ function submit_appointment() {
             'country' => $country,
             'appointment_datetime' => $unix_timestamp,
             'email' => $email,
-            'verification_token' => $verification_token
+            'verification_token' => $verification_token,
+            'cancellation_token' => $cancellation_token
         ]
     );
 
@@ -143,6 +149,14 @@ function submit_appointment() {
         return;
     }
 
+    $cancellation_url = add_query_arg(
+        [
+            'cancel_appointment' => 1,
+            'token' => $cancellation_token
+        ],
+        $page_url
+    );
+
     // Send verification email
     $email_subject = "Bevestiging van uw aanmelding";
     $email_message = get_message_template('appointment_email_verification', [
@@ -151,7 +165,8 @@ function submit_appointment() {
         'city' => $city,
         'country' => $country,
         'email' => $email,
-        'verify url' => $verification_url
+        'verify_url' => $verification_url,
+        'cancel_url' => $cancellation_url
     ]);
 
     $email_sent = wp_mail($email, $email_subject, $email_message);
@@ -197,10 +212,11 @@ function handle_appointment_verification() {
                     'city' => $appointment->city,
                     'country' => $appointment->country,
                     'appointment_datetime' => $appointment->appointment_datetime,
-                    'email' => $appointment->email
+                    'email' => $appointment->email,
+                    'cancellation_token' => $appointment->cancellation_token
                 ]
             );
-
+        
             // Remove the appointment from the pending table
             $wpdb->delete(
                 EVENT_SCHEDULER_PENDING_TABLE,
@@ -217,6 +233,38 @@ function handle_appointment_verification() {
         }
     }
 }
+
+add_action('init', 'handle_appointment_cancellation');
+
+function handle_appointment_cancellation() {
+    if (isset($_GET['cancel_appointment']) && $_GET['cancel_appointment'] == 1 && isset($_GET['token'])) {
+        global $wpdb;
+        $token = sanitize_text_field($_GET['token']);
+
+        // Retrieve the appointment using the cancellation token
+        $appointment = $wpdb->get_row(
+            $wpdb->prepare("SELECT * FROM " . EVENT_SCHEDULER_TABLE . " WHERE cancellation_token = %s", $token)
+        );
+
+        if ($appointment) {
+            // Delete the confirmed appointment
+            $wpdb->delete(
+                EVENT_SCHEDULER_TABLE,
+                ['id' => $appointment->id]
+            );
+
+            // Display cancellation message
+            $cancel_message = get_message_template('appointment_cancellation', []);
+            echo esc_html($cancel_message);
+            exit;
+        } else {
+            echo '<h1>Invalid Cancellation Link</h1>';
+            echo '<p>We couldn’t find your appointment. It may have already been cancelled or the link may be invalid.</p>';
+            exit;
+        }
+    }
+}
+
 
 // Enqueue scripts and styles
 add_action('wp_enqueue_scripts', 'event_scheduler_enqueue_scripts');
