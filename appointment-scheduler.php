@@ -7,7 +7,6 @@ Author: Casper Molhoek
  
 Todo:
 - Make sure server denies attempts at rescheduling a verified appointment
-- Add list of countries
 - Fix admin menu appointment search function
 - Add feature to allow an appointment to automatically be placed weekly, in a given period up to a year
 - scheduler-loader.js loads on pages without the shortcode
@@ -195,8 +194,8 @@ function handle_appointment_verification() {
         global $wpdb;
         $token = sanitize_text_field($_GET['token']);
 
-        // Define the base URL of the page to avoid recursive redirects
-        $base_url = home_url('/calender/'); // Replace with the exact URL of your calendar page
+        // Get the current page URL
+        $current_url = add_query_arg(null, null, home_url(add_query_arg([], $wp->request)));
 
         // Retrieve the pending appointment using the token
         $appointment = $wpdb->get_row(
@@ -216,23 +215,24 @@ function handle_appointment_verification() {
                     'cancellation_token' => $appointment->cancellation_token
                 ]
             );
-        
+
             // Remove the appointment from the pending table
             $wpdb->delete(
                 EVENT_SCHEDULER_PENDING_TABLE,
                 ['id' => $appointment->id]
             );
 
-            // Redirect to the base page with a success parameter
-            wp_redirect(add_query_arg('verified', 'success', $base_url));
+            // Redirect to the current page URL with a success parameter
+            wp_redirect(add_query_arg('verified', 'success', $current_url));
             exit;
         } else {
-            // Redirect to the base page with an error parameter if the token is invalid
-            wp_redirect(add_query_arg('verified', 'error', $base_url));
+            // Redirect to the current page URL with an error parameter if the token is invalid
+            wp_redirect(add_query_arg('verified', 'error', $current_url));
             exit;
         }
     }
 }
+
 
 add_action('init', 'handle_appointment_cancellation');
 
@@ -263,18 +263,6 @@ function handle_appointment_cancellation() {
             exit;
         }
     }
-}
-
-
-// Enqueue scripts and styles
-add_action('wp_enqueue_scripts', 'event_scheduler_enqueue_scripts');
-function event_scheduler_enqueue_scripts() {
-    wp_enqueue_script('scheduler-loader', plugins_url('/js/scheduler-loader.js', __FILE__), array('jquery'), null, true);
-
-    wp_localize_script('scheduler-loader', 'scheduler_data', array(
-        'ajaxurl' => admin_url('admin-ajax.php'), // Correctly set AJAX URL
-        'interval' => get_option('event_scheduler_interval', 60)
-    ));
 }
 
 // Helper function to retrieve a message template with replaced placeholders

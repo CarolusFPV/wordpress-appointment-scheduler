@@ -18,6 +18,20 @@ function event_scheduler_combined_shortcode() {
     include(plugin_dir_path(__FILE__) . 'templates/appointment-form.php');
     $output .= ob_get_clean();
 
+    // Inject the script directly into the shortcode output
+    $script_url = plugins_url('/js/scheduler-loader.js', __FILE__);
+    $localized_data = json_encode(array(
+        'ajaxurl' => admin_url('admin-ajax.php'),
+        'interval' => get_option('event_scheduler_interval', 60),
+    ));
+
+    $output .= <<<HTML
+<script src="$script_url"></script>
+<script>
+    var scheduler_data = $localized_data;
+</script>
+HTML;
+
     return $output;
 }
 
