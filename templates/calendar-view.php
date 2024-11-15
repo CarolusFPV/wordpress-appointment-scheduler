@@ -1,7 +1,3 @@
-<style type="text/css">
-    <?php echo esc_html(get_option('custom_calendar_css', '')); ?>
-</style>
-
 <div class="custom-scheduler-calendar">
     <div class="calendar-navigation">
         <button class="nav-arrow" id="prev-day">&lt;</button>

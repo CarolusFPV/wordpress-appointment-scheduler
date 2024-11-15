@@ -142,11 +142,27 @@ document.addEventListener('DOMContentLoaded', function() {
     // Handle form submission
     document.querySelector('.custom-scheduler-form').addEventListener('submit', function(event) {
         event.preventDefault();
-    
+
         const formData = new FormData(this);
-        formData.delete('appointment_datetime');
+        formData.delete('appointment_datetime'); // Remove unnecessary field
         formData.append('action', 'submit_appointment');
-    
+
+        // Check if "Automatisch Herhalen" is enabled
+        const repeatToggle = document.getElementById('repeat_toggle');
+        if (repeatToggle.checked) {
+            const repeatType = document.getElementById('repeat_type').value;
+            const endDate = document.getElementById('end_date').value;
+
+            // Append repeat options to formData
+            formData.append('repeat_type', repeatType);
+            formData.append('end_date', endDate);
+        } else {
+            // Ensure repeat_type and end_date are removed if the toggle is off
+            formData.delete('repeat_type');
+            formData.delete('end_date');
+        }
+
+        // Submit form via AJAX
         fetch(scheduler_data.ajaxurl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -155,7 +171,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             const formContainer = document.getElementById('appointment-form-container');
-    
+
             // Replace the form content with the success or error message
             if (data.success) {
                 const formattedMessage = data.data.message.replace(/\n/g, '<br>');
@@ -168,7 +184,9 @@ document.addEventListener('DOMContentLoaded', function() {
         .catch(error => {
             alert("An error occurred while submitting the form: " + error.message);
         });
-    });    
+    });
+
+ 
 
     updateCalendarSections(currentDate);
 });

@@ -9,7 +9,6 @@ Todo:
 - Make sure server denies attempts at rescheduling a verified appointment
 - Fix admin menu appointment search function
 - Add feature to allow an appointment to automatically be placed weekly, in a given period up to a year
-- scheduler-loader.js loads on pages without the shortcode
 */
 
 global $wpdb;
@@ -94,7 +93,6 @@ function get_schedule() {
 add_action('wp_ajax_nopriv_submit_appointment', 'submit_appointment');
 add_action('wp_ajax_submit_appointment', 'submit_appointment');
 
-// Handle form submission
 function submit_appointment() {
     global $wpdb;
 
