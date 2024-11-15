@@ -8,7 +8,6 @@ Author: Casper Molhoek
 Todo:
 - Make sure server denies attempts at rescheduling a verified appointment
 - Fix admin menu appointment search function
-- Add feature to allow an appointment to automatically be placed weekly, in a given period up to a year
 */
 
 global $wpdb;
