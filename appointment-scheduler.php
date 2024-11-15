@@ -2,7 +2,7 @@
 /*
 Plugin Name: Event Scheduler
 Description: Allow users to schedule a timeframe to take part of an event. The entire schedule is displayed in the [event_scheduler] shortcode.
-Version: 3.1
+Version: 3.2
 Author: Casper Molhoek
  
 Todo:
@@ -52,8 +52,10 @@ function event_scheduler_create_tables() {
             email VARCHAR(100) NOT NULL,
             verification_token VARCHAR(255) NOT NULL,
             cancellation_token VARCHAR(255) NOT NULL,
+            repeat_type VARCHAR(20) DEFAULT NULL,
+            end_date INT(11) DEFAULT NULL,
             PRIMARY KEY (id)
-        ) $charset_collate;",        
+        ) $charset_collate;",
     ];
 
     require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
@@ -61,6 +63,22 @@ function event_scheduler_create_tables() {
         dbDelta($sql);
     }
 }
+
+// Update database tables to add missing columns
+function event_scheduler_update_tables() {
+    global $wpdb;
+
+    // Add missing columns to EVENT_SCHEDULER_PENDING_TABLE
+    $alter_table_sql = "
+        ALTER TABLE " . EVENT_SCHEDULER_PENDING_TABLE . "
+        ADD COLUMN IF NOT EXISTS repeat_type VARCHAR(20) DEFAULT NULL,
+        ADD COLUMN IF NOT EXISTS end_date INT(11) DEFAULT NULL;
+    ";
+
+    // Execute the SQL query
+    $wpdb->query($alter_table_sql);
+}
+add_action('init', 'event_scheduler_update_tables');
 
 // AJAX handler for fetching full schedule
 add_action('wp_ajax_get_schedule', 'get_schedule');
@@ -90,9 +108,6 @@ function get_schedule() {
 }
 
 // Handle form submission
-add_action('wp_ajax_nopriv_submit_appointment', 'submit_appointment');
-add_action('wp_ajax_submit_appointment', 'submit_appointment');
-
 function submit_appointment() {
     global $wpdb;
 
@@ -101,26 +116,23 @@ function submit_appointment() {
     $city = sanitize_text_field($_POST['city']);
     $country = sanitize_text_field($_POST['country']);
     $email = sanitize_email($_POST['email']);
-    $unix_timestamp = sanitize_text_field($_POST['unix_timestamp']);
+    $unix_timestamp = (int) sanitize_text_field($_POST['unix_timestamp']);
     $local_datetime = sanitize_text_field($_POST['local_datetime']);
     $page_url = sanitize_text_field($_POST['page_url']);
+
+    // Optional repeat fields
+    $repeat_type = isset($_POST['repeat_type']) ? sanitize_text_field($_POST['repeat_type']) : null;
+    $end_date = isset($_POST['end_date']) ? (int) sanitize_text_field($_POST['end_date']) : null;
 
     // Remove any query parameters from the base page URL
     $base_url = strtok($page_url, '?');
 
-    // Prepare email verification link with page_url as a parameter
+    // Generate tokens
     $verification_token = wp_generate_password(20, false);
-    $verification_url = add_query_arg(
-        [
-            'verify_appointment' => 1,
-            'token' => $verification_token
-        ],
-        $page_url
-    );
-
     $cancellation_token = wp_generate_password(20, false);
 
-    $wpdb->insert(
+    // Insert the initial appointment into the pending table
+    $result = $wpdb->insert(
         EVENT_SCHEDULER_PENDING_TABLE,
         [
             'user_name' => $user_name,
@@ -129,7 +141,9 @@ function submit_appointment() {
             'appointment_datetime' => $unix_timestamp,
             'email' => $email,
             'verification_token' => $verification_token,
-            'cancellation_token' => $cancellation_token
+            'cancellation_token' => $cancellation_token,
+            'repeat_type' => $repeat_type,
+            'end_date' => $end_date,
         ]
     );
 
@@ -140,16 +154,25 @@ function submit_appointment() {
             'city' => $city,
             'country' => $country,
             'email' => $email,
-            'error message' => $wpdb->last_error
+            'error_message' => $wpdb->last_error,
         ]);
         wp_send_json_error(['message' => $error_message]);
         return;
     }
 
+    // Prepare verification and cancellation URLs
+    $verification_url = add_query_arg(
+        [
+            'verify_appointment' => 1,
+            'token' => $verification_token,
+        ],
+        $page_url
+    );
+
     $cancellation_url = add_query_arg(
         [
             'cancel_appointment' => 1,
-            'token' => $cancellation_token
+            'token' => $cancellation_token,
         ],
         $page_url
     );
@@ -162,38 +185,42 @@ function submit_appointment() {
         'city' => $city,
         'country' => $country,
         'email' => $email,
+        'repeat_type' => $repeat_type ? ($repeat_type === 'daily' ? 'Dagelijks' : 'Wekelijks') : 'Geen',
+        'end_date' => $end_date ? date('Y-m-d', $end_date) : 'N/A',
         'verify_url' => $verification_url,
-        'cancel_url' => $cancellation_url
+        'cancel_url' => $cancellation_url,
     ]);
 
     $email_sent = wp_mail($email, $email_subject, $email_message);
 
     if ($email_sent) {
-        // Load success message from the admin settings
         $success_message = get_message_template('appointment_submit_success', [
             'name' => $user_name,
             'time' => $local_datetime,
             'city' => $city,
             'country' => $country,
-            'email' => $email
+            'email' => $email,
+            'repeat_type' => $repeat_type ? ($repeat_type === 'daily' ? 'Dagelijks' : 'Wekelijks') : 'Geen',
+            'end_date' => $end_date ? date('Y-m-d', $end_date) : 'N/A',
         ]);
 
         wp_send_json_success(['message' => $success_message]);
     } else {
-        wp_send_json_error(['message' => 'E-mail kon niet worden verzonden.']);
+        wp_send_json_error(['message' => 'E-mail kon niet worden verzonden. Probeer het opnieuw.']);
     }
 }
+add_action('wp_ajax_nopriv_submit_appointment', 'submit_appointment');
+add_action('wp_ajax_submit_appointment', 'submit_appointment');
 
 // Handle verification link click
-add_action('init', 'handle_appointment_verification');
-
 function handle_appointment_verification() {
     if (isset($_GET['verify_appointment']) && $_GET['verify_appointment'] == 1 && isset($_GET['token'])) {
         global $wpdb;
+
         $token = sanitize_text_field($_GET['token']);
 
         // Get the current page URL
-        $current_url = add_query_arg(null, null, home_url(add_query_arg([], $wp->request)));
+        $page_url = strtok($_SERVER['REQUEST_URI'], '?');
 
         // Retrieve the pending appointment using the token
         $appointment = $wpdb->get_row(
@@ -201,7 +228,11 @@ function handle_appointment_verification() {
         );
 
         if ($appointment) {
-            // Move the appointment to the confirmed table
+            $cancellation_token = $appointment->cancellation_token;
+            $repeat_type = $appointment->repeat_type;
+            $end_date = $appointment->end_date;
+
+            // Schedule the initial appointment
             $wpdb->insert(
                 EVENT_SCHEDULER_TABLE,
                 [
@@ -210,9 +241,34 @@ function handle_appointment_verification() {
                     'country' => $appointment->country,
                     'appointment_datetime' => $appointment->appointment_datetime,
                     'email' => $appointment->email,
-                    'cancellation_token' => $appointment->cancellation_token
+                    'cancellation_token' => $cancellation_token,
                 ]
             );
+
+            // Schedule additional appointments if repeat is enabled
+            if ($repeat_type && $end_date) {
+                $current_date = (int) $appointment->appointment_datetime;
+
+                while ($current_date < $end_date) {
+                    $current_date = $repeat_type === 'daily'
+                        ? strtotime('+1 day', $current_date)
+                        : strtotime('+1 week', $current_date);
+
+                    if ($current_date >= $end_date) break;
+
+                    $wpdb->insert(
+                        EVENT_SCHEDULER_TABLE,
+                        [
+                            'user_name' => $appointment->user_name,
+                            'city' => $appointment->city,
+                            'country' => $appointment->country,
+                            'appointment_datetime' => $current_date,
+                            'email' => $appointment->email,
+                            'cancellation_token' => $cancellation_token,
+                        ]
+                    );
+                }
+            }
 
             // Remove the appointment from the pending table
             $wpdb->delete(
@@ -220,39 +276,35 @@ function handle_appointment_verification() {
                 ['id' => $appointment->id]
             );
 
-            // Redirect to the current page URL with a success parameter
-            wp_redirect(add_query_arg('verified', 'success', $current_url));
+            wp_redirect(add_query_arg('verified', 'success', $page_url));
             exit;
         } else {
-            // Redirect to the current page URL with an error parameter if the token is invalid
-            wp_redirect(add_query_arg('verified', 'error', $current_url));
+            wp_redirect(add_query_arg('verified', 'error', $page_url));
             exit;
         }
     }
 }
-
-
-add_action('init', 'handle_appointment_cancellation');
+add_action('init', 'handle_appointment_verification');
 
 function handle_appointment_cancellation() {
     if (isset($_GET['cancel_appointment']) && $_GET['cancel_appointment'] == 1 && isset($_GET['token'])) {
         global $wpdb;
+
         $token = sanitize_text_field($_GET['token']);
 
-        // Retrieve the appointment using the cancellation token
-        $appointment = $wpdb->get_row(
+        // Retrieve all appointments with the same cancellation token
+        $appointments = $wpdb->get_results(
             $wpdb->prepare("SELECT * FROM " . EVENT_SCHEDULER_TABLE . " WHERE cancellation_token = %s", $token)
         );
 
-        if ($appointment) {
-            // Delete the confirmed appointment
-            $wpdb->delete(
-                EVENT_SCHEDULER_TABLE,
-                ['id' => $appointment->id]
+        if ($appointments) {
+            // Delete all linked appointments
+            $wpdb->query(
+                $wpdb->prepare("DELETE FROM " . EVENT_SCHEDULER_TABLE . " WHERE cancellation_token = %s", $token)
             );
 
-            // Display cancellation message
-            $cancel_message = get_message_template('appointment_cancellation', []);
+            // Display cancellation success message
+            $cancel_message = get_message_template('appointment_cancellation_success', []);
             echo esc_html($cancel_message);
             exit;
         } else {
@@ -262,6 +314,8 @@ function handle_appointment_cancellation() {
         }
     }
 }
+add_action('init', 'handle_appointment_cancellation');
+
 
 // Helper function to retrieve a message template with replaced placeholders
 function get_message_template($template_name, $placeholders = []) {

@@ -140,53 +140,51 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Handle form submission
-    document.querySelector('.custom-scheduler-form').addEventListener('submit', function(event) {
+    document.querySelector('.custom-scheduler-form').addEventListener('submit', function (event) {
         event.preventDefault();
 
         const formData = new FormData(this);
         formData.delete('appointment_datetime'); // Remove unnecessary field
         formData.append('action', 'submit_appointment');
 
-        // Check if "Automatisch Herhalen" is enabled
+        // Convert end_date to a Unix timestamp if repeat is enabled
         const repeatToggle = document.getElementById('repeat_toggle');
         if (repeatToggle.checked) {
-            const repeatType = document.getElementById('repeat_type').value;
             const endDate = document.getElementById('end_date').value;
+            const endDateUnix = Math.floor(new Date(endDate).getTime() / 1000);
 
-            // Append repeat options to formData
+            const repeatType = document.getElementById('repeat_type').value;
             formData.append('repeat_type', repeatType);
-            formData.append('end_date', endDate);
+            formData.append('end_date', endDateUnix); // Send as a Unix timestamp
         } else {
-            // Ensure repeat_type and end_date are removed if the toggle is off
+            // Remove repeat-related data if the toggle is off
             formData.delete('repeat_type');
             formData.delete('end_date');
         }
 
-        // Submit form via AJAX
+        // Submit the form via AJAX
         fetch(scheduler_data.ajaxurl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams(formData)
+            body: new URLSearchParams(formData),
         })
-        .then(response => response.json())
-        .then(data => {
-            const formContainer = document.getElementById('appointment-form-container');
+            .then((response) => response.json())
+            .then((data) => {
+                const formContainer = document.getElementById('appointment-form-container');
 
-            // Replace the form content with the success or error message
-            if (data.success) {
-                const formattedMessage = data.data.message.replace(/\n/g, '<br>');
-                formContainer.innerHTML = `<div class="appointment-message">${formattedMessage}</div>`;
-            } else {
-                const formattedMessage = (data.data.message || 'There was an error scheduling your appointment. Please try again.').replace(/\n/g, '<br>');
-                formContainer.innerHTML = `<div class="appointment-message">${formattedMessage}</div>`;
-            }
-        })
-        .catch(error => {
-            alert("An error occurred while submitting the form: " + error.message);
-        });
+                // Replace the form content with a success or error message
+                if (data.success) {
+                    const formattedMessage = data.data.message.replace(/\n/g, '<br>');
+                    formContainer.innerHTML = `<div class="appointment-message">${formattedMessage}</div>`;
+                } else {
+                    const formattedMessage = (data.data.message || 'There was an error scheduling your appointment. Please try again.').replace(/\n/g, '<br>');
+                    formContainer.innerHTML = `<div class="appointment-message">${formattedMessage}</div>`;
+                }
+            })
+            .catch((error) => {
+                alert('An error occurred while submitting the form: ' + error.message);
+            });
     });
-
- 
 
     updateCalendarSections(currentDate);
 });

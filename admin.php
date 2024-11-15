@@ -60,7 +60,7 @@ function custom_scheduler_message_templates_page() {
     $templates = [
         'appointment_submit_success' => [
             'label' => 'Appointment Submit Success Message',
-            'placeholders' => '%name%, %time%, %city%, %country%, %email%'
+            'placeholders' => '%name%, %time%, %city%, %country%, %email%, %repeat_type%, %end_date%'
         ],
         'appointment_submit_failed' => [
             'label' => 'Appointment Submit Failed Message',
@@ -68,11 +68,11 @@ function custom_scheduler_message_templates_page() {
         ],
         'appointment_scheduled' => [
             'label' => 'Appointment Scheduled Message',
-            'placeholders' => '%name%, %time%, %city%, %country%'
+            'placeholders' => '%name%, %time%, %city%, %country%, %repeat_type%, %end_date%'
         ],
         'appointment_email_verification' => [
             'label' => 'Appointment Verification Email',
-            'placeholders' => '%name%, %time%, %city%, %country%, %email%, %verify_url%'
+            'placeholders' => '%name%, %time%, %city%, %country%, %email%, %verify_url%, %repeat_type%, %end_date%'
         ],
         'appointment_cancellation' => [
             'label' => 'Appointment Cancellation Message',
