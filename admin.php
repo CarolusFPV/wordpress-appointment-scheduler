@@ -193,6 +193,20 @@ function custom_scheduler_schedule_page() {
 
     // Fetch all confirmed appointments
     $appointments = $wpdb->get_results("SELECT * FROM " . EVENT_SCHEDULER_TABLE . " ORDER BY appointment_datetime", OBJECT);
+
+    // Fetch cancellation_token counts for identifying auto-scheduled appointments
+    $cancellation_token_counts = $wpdb->get_results("
+        SELECT cancellation_token, COUNT(*) as count 
+        FROM " . EVENT_SCHEDULER_TABLE . " 
+        WHERE cancellation_token IS NOT NULL AND cancellation_token != ''
+        GROUP BY cancellation_token
+    ", OBJECT);
+
+    // Map cancellation tokens to their counts
+    $cancellation_count_map = [];
+    foreach ($cancellation_token_counts as $entry) {
+        $cancellation_count_map[$entry->cancellation_token] = $entry->count;
+    }
     ?>
     <div class="wrap">
         <h2>Confirmed Appointments</h2>
@@ -210,16 +224,36 @@ function custom_scheduler_schedule_page() {
                         <th>City</th>
                         <th>Country</th>
                         <th>Appointment Date</th>
+                        <th>Cancellation ID</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($appointments as $appointment): ?>
-                        <tr>
+                    <?php 
+                    foreach ($appointments as $index => $appointment): 
+                        $is_auto_scheduled = isset($cancellation_count_map[$appointment->cancellation_token]) &&
+                                            $cancellation_count_map[$appointment->cancellation_token] > 1;
+
+                        // Generate a persistent color for auto-scheduled appointments
+                        $background_color = 'transparent'; // Default for single appointments
+                        if ($is_auto_scheduled) {
+                            // Hash the cancellation token to generate a color
+                            $hash = crc32($appointment->cancellation_token); // Convert token to hash
+                            $r = ($hash & 0xFF0000) >> 16;
+                            $g = ($hash & 0x00FF00) >> 8;
+                            $b = ($hash & 0x0000FF);
+                            $background_color = "rgba($r, $g, $b, 0.5)"; // Light color with transparency
+                        } else {
+                            // Alternate row colors for non-auto-scheduled appointments
+                            $background_color = $index % 2 === 0 ? '#f9f9f9' : '#ffffff'; // Light and slightly darker
+                        }
+                    ?>
+                        <tr style="background-color: <?php echo $background_color; ?>;">
                             <td><?php echo esc_html($appointment->user_name); ?></td>
                             <td><?php echo esc_html($appointment->city); ?></td>
                             <td><?php echo esc_html($appointment->country); ?></td>
                             <td><?php echo date('Y-m-d H:i', $appointment->appointment_datetime); ?></td>
+                            <td><?php echo esc_html($appointment->cancellation_token); ?></td>
                             <td>
                                 <a href="<?php echo esc_url(add_query_arg(['delete_appointment' => 1, 'appointment_id' => $appointment->id])); ?>" class="button">Delete</a>
                             </td>
