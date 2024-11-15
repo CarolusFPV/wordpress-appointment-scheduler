@@ -142,26 +142,31 @@ document.addEventListener('DOMContentLoaded', function() {
     // Handle form submission
     document.querySelector('.custom-scheduler-form').addEventListener('submit', function (event) {
         event.preventDefault();
-
+    
         const formData = new FormData(this);
         formData.delete('appointment_datetime'); // Remove unnecessary field
         formData.append('action', 'submit_appointment');
-
+    
         // Convert end_date to a Unix timestamp if repeat is enabled
         const repeatToggle = document.getElementById('repeat_toggle');
         if (repeatToggle.checked) {
-            const endDate = document.getElementById('end_date').value;
-            const endDateUnix = Math.floor(new Date(endDate).getTime() / 1000);
-
+            const endDateInput = document.getElementById('end_date').value;
+    
+            // Ensure end_date includes the full day (set to 23:59:59)
+            const endDateTime = new Date(endDateInput);
+            endDateTime.setHours(23, 59, 59, 999); // Set to the end of the day
+    
+            const endDateUnix = Math.floor(endDateTime.getTime() / 1000); // Convert to Unix timestamp
             const repeatType = document.getElementById('repeat_type').value;
-            formData.append('repeat_type', repeatType);
-            formData.append('end_date', endDateUnix); // Send as a Unix timestamp
+    
+            formData.set('repeat_type', repeatType);
+            formData.set('end_date', endDateUnix); // Overwrite end_date with Unix timestamp
         } else {
             // Remove repeat-related data if the toggle is off
             formData.delete('repeat_type');
             formData.delete('end_date');
         }
-
+    
         // Submit the form via AJAX
         fetch(scheduler_data.ajaxurl, {
             method: 'POST',
@@ -171,7 +176,7 @@ document.addEventListener('DOMContentLoaded', function() {
             .then((response) => response.json())
             .then((data) => {
                 const formContainer = document.getElementById('appointment-form-container');
-
+    
                 // Replace the form content with a success or error message
                 if (data.success) {
                     const formattedMessage = data.data.message.replace(/\n/g, '<br>');
@@ -185,6 +190,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 alert('An error occurred while submitting the form: ' + error.message);
             });
     });
-
+    
     updateCalendarSections(currentDate);
 });
