@@ -176,21 +176,8 @@ function submit_appointment() {
         $page_url
     );
 
-    // Send verification email
-    $email_subject = "Bevestiging van uw aanmelding";
-    $email_message = get_message_template('appointment_email_verification', [
-        'name' => $user_name,
-        'time' => $local_datetime,
-        'city' => $city,
-        'country' => $country,
-        'email' => $email,
-        'repeat_type' => $repeat_type ? ($repeat_type === 'daily' ? 'Dagelijks' : 'Wekelijks') : 'Geen',
-        'end_date' => $end_date ? date('Y-m-d', $end_date) : 'N/A',
-        'verify_url' => $verification_url,
-        'cancel_url' => $cancellation_url,
-    ]);
-
-    $email_sent = wp_mail($email, $email_subject, $email_message);
+    // Send email using a separate method
+    $email_sent = send_appointment_email($email, $user_name, $local_datetime, $city, $country, $repeat_type, $end_date, $verification_url, $cancellation_url);
 
     if ($email_sent) {
         $success_message = get_message_template('appointment_submit_success', [
@@ -210,6 +197,24 @@ function submit_appointment() {
 }
 add_action('wp_ajax_nopriv_submit_appointment', 'submit_appointment');
 add_action('wp_ajax_submit_appointment', 'submit_appointment');
+
+// Separate method for sending email
+function send_appointment_email($to, $name, $time, $city, $country, $repeat_type, $end_date, $verify_url, $cancel_url) {
+    $email_subject = "Bevestiging van uw aanmelding";
+    $email_message = get_message_template('appointment_email_verification', [
+        'name' => $name,
+        'time' => $time,
+        'city' => $city,
+        'country' => $country,
+        'repeat_type' => $repeat_type ? ($repeat_type === 'daily' ? 'Dagelijks' : 'Wekelijks') : 'Geen',
+        'end_date' => $end_date ? date('Y-m-d', $end_date) : 'N/A',
+        'verify_url' => $verify_url,
+        'cancel_url' => $cancel_url,
+    ]);
+
+    return wp_mail($to, $email_subject, $email_message);
+}
+
 
 // Handle verification link click
 function handle_appointment_verification() {
@@ -231,18 +236,29 @@ function handle_appointment_verification() {
             $repeat_type = $appointment->repeat_type;
             $end_date = $appointment->end_date;
 
-            // Schedule the initial appointment
-            $wpdb->insert(
-                EVENT_SCHEDULER_TABLE,
-                [
-                    'user_name' => $appointment->user_name,
-                    'city' => $appointment->city,
-                    'country' => $appointment->country,
-                    'appointment_datetime' => $appointment->appointment_datetime,
-                    'email' => $appointment->email,
-                    'cancellation_token' => $cancellation_token,
-                ]
+            // Check if the appointment already exists
+            $exists = $wpdb->get_var(
+                $wpdb->prepare(
+                    "SELECT COUNT(*) FROM " . EVENT_SCHEDULER_TABLE . " WHERE appointment_datetime = %d AND email = %s",
+                    $appointment->appointment_datetime,
+                    $appointment->email
+                )
             );
+
+            // Schedule the initial appointment if it doesn't exist
+            if (!$exists) {
+                $wpdb->insert(
+                    EVENT_SCHEDULER_TABLE,
+                    [
+                        'user_name' => $appointment->user_name,
+                        'city' => $appointment->city,
+                        'country' => $appointment->country,
+                        'appointment_datetime' => $appointment->appointment_datetime,
+                        'email' => $appointment->email,
+                        'cancellation_token' => $cancellation_token,
+                    ]
+                );
+            }
 
             // Schedule additional appointments if repeat is enabled
             if ($repeat_type && $end_date) {
@@ -255,17 +271,29 @@ function handle_appointment_verification() {
 
                     if ($current_date >= $end_date) break;
 
-                    $wpdb->insert(
-                        EVENT_SCHEDULER_TABLE,
-                        [
-                            'user_name' => $appointment->user_name,
-                            'city' => $appointment->city,
-                            'country' => $appointment->country,
-                            'appointment_datetime' => $current_date,
-                            'email' => $appointment->email,
-                            'cancellation_token' => $cancellation_token,
-                        ]
+                    // Check if the appointment already exists
+                    $exists = $wpdb->get_var(
+                        $wpdb->prepare(
+                            "SELECT COUNT(*) FROM " . EVENT_SCHEDULER_TABLE . " WHERE appointment_datetime = %d AND email = %s",
+                            $current_date,
+                            $appointment->email
+                        )
                     );
+
+                    // Schedule the appointment if it doesn't exist
+                    if (!$exists) {
+                        $wpdb->insert(
+                            EVENT_SCHEDULER_TABLE,
+                            [
+                                'user_name' => $appointment->user_name,
+                                'city' => $appointment->city,
+                                'country' => $appointment->country,
+                                'appointment_datetime' => $current_date,
+                                'email' => $appointment->email,
+                                'cancellation_token' => $cancellation_token,
+                            ]
+                        );
+                    }
                 }
             }
 
@@ -284,6 +312,7 @@ function handle_appointment_verification() {
     }
 }
 add_action('init', 'handle_appointment_verification');
+
 
 function handle_appointment_cancellation() {
     if (isset($_GET['cancel_appointment']) && $_GET['cancel_appointment'] == 1 && isset($_GET['token'])) {

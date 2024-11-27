@@ -22,7 +22,7 @@
                 <option value="GI">Gibraltar</option>
                 <option value="DE">Germany</option>
                 <option value="GR">Greece</option>
-                <option value="VA">Holy See (Vatican City State)</option>
+                <option value="VA">Vatican City</option>
                 <option value="HU">Hungary</option>
                 <option value="IT">Italy</option>
                 <option value="LI">Liechtenstein</option>
@@ -134,8 +134,6 @@
                 <option value="JP">Japan</option>
                 <option value="JO">Jordan</option>
                 <option value="KZ">Kazakhstan</option>
-                <option value="KP">Korea, Democratic People's Republic of</option>
-                <option value="KR">Korea, Republic of</option>
                 <option value="KW">Kuwait</option>
                 <option value="KG">Kyrgyzstan</option>
                 <option value="LA">Lao</option>
@@ -152,6 +150,7 @@
                 <option value="RU">Russian Federation</option>
                 <option value="SA">Saudi Arabia</option>
                 <option value="SG">Singapore</option>
+                <option value="SK">South Korea</option>
                 <option value="LK">Sri Lanka</option>
                 <option value="SY">Syria</option>
                 <option value="TW">Taiwan</option>
