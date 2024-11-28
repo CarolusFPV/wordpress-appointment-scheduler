@@ -6,7 +6,6 @@ Version: 3.2
 Author: Casper Molhoek
  
 Todo:
-- Make sure server denies attempts at rescheduling a verified appointment
 - Fix admin menu appointment search function
 */
 
