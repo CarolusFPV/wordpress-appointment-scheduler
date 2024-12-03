@@ -330,9 +330,11 @@ function handle_appointment_cancellation() {
                 $wpdb->prepare("DELETE FROM " . EVENT_SCHEDULER_TABLE . " WHERE cancellation_token = %s", $token)
             );
 
+            $page_url = strtok($_SERVER['REQUEST_URI'], '?');
+
             // Display cancellation success message
-            $cancel_message = get_message_template('appointment_cancellation_success', []);
-            echo esc_html($cancel_message);
+            // $cancel_message = get_message_template('appointment_cancellation_success', []);
+            wp_redirect(add_query_arg('cancelled', 'success', $page_url));
             exit;
         } else {
             echo '<h1>Invalid Cancellation Link</h1>';

@@ -1,47 +1,46 @@
 <?php
 // Add submenu pages for the Scheduler
 add_action('admin_menu', function() {
-    // Submenu for viewing and managing the Schedule
+    $capability = 'edit_posts'; 
+
     add_menu_page(
         'Appointment Schedule', 
         'Schedule', 
-        'manage_options', 
+        $capability, 
         'custom-scheduler-schedule', 
         'custom_scheduler_schedule_page', 
         'dashicons-calendar-alt', 
         6 
     );
 
-    // Submenu for Scheduler Settings
     add_submenu_page(
         'custom-scheduler-schedule', 
         'Scheduler Settings', 
         'Settings', 
-        'manage_options', 
+        $capability, 
         'custom-scheduler-settings', 
         'custom_scheduler_settings_page' 
     );
 
-    // Submenu for manually adding an appointment
     add_submenu_page(
         'custom-scheduler-schedule', 
         'Add Appointment', 
         'Add Appointment', 
-        'manage_options', 
+        $capability, 
         'custom-scheduler-add-appointment', 
         'custom_scheduler_add_appointment_page'
     );
 
-    // Submenu for Message Templates
     add_submenu_page(
         'custom-scheduler-schedule', 
         'Message Templates', 
         'Message Templates', 
-        'manage_options', 
+        $capability, 
         'custom-scheduler-message-templates', 
         'custom_scheduler_message_templates_page'
     );
 });
+
 
 // Default templates for each message
 function get_default_templates() {
