@@ -98,12 +98,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 const userFriendlyDate = new Date(unixTimestamp * 1000).toLocaleString();
                 document.getElementById('appointment_datetime').value = userFriendlyDate;
                 document.getElementById('unix_timestamp').value = unixTimestamp;
-                document.getElementById('local_datetime').value = userFriendlyDate;
 
                 const appointmentFormContainer = document.getElementById('appointment-form-container');
                 appointmentFormContainer.style.display = 'block';
                 appointmentFormContainer.scrollIntoView();
                 document.getElementById('user_name').focus();
+
+                // Uncheck the button and trigger the event
+                const repeatToggle = document.getElementById('repeat_toggle');
+                if (repeatToggle) {
+                    repeatToggle.checked = false;
+                    toggleRepeatOptions(false);
+                }
             });
         });
     }
@@ -137,58 +143,6 @@ document.addEventListener('DOMContentLoaded', function() {
         currentDate.setDate(currentDate.getDate() + 1);
         document.getElementById('jump-to-date').value = currentDate.toISOString().split('T')[0];
         updateCalendarSections(currentDate);
-    });
-
-    // Handle form submission
-    document.querySelector('.custom-scheduler-form').addEventListener('submit', function (event) {
-        event.preventDefault();
-    
-        const formData = new FormData(this);
-        formData.delete('appointment_datetime'); // Remove unnecessary field
-        formData.append('action', 'submit_appointment');
-    
-        // Convert end_date to a Unix timestamp if repeat is enabled
-        const repeatToggle = document.getElementById('repeat_toggle');
-        if (repeatToggle.checked) {
-            const endDateInput = document.getElementById('end_date').value;
-    
-            // Ensure end_date includes the full day (set to 23:59:59)
-            const endDateTime = new Date(endDateInput);
-            endDateTime.setHours(23, 59, 59, 999); // Set to the end of the day
-    
-            const endDateUnix = Math.floor(endDateTime.getTime() / 1000); // Convert to Unix timestamp
-            const repeatType = document.getElementById('repeat_type').value;
-    
-            formData.set('repeat_type', repeatType);
-            formData.set('end_date', endDateUnix); // Overwrite end_date with Unix timestamp
-        } else {
-            // Remove repeat-related data if the toggle is off
-            formData.delete('repeat_type');
-            formData.delete('end_date');
-        }
-    
-        // Submit the form via AJAX
-        fetch(scheduler_data.ajaxurl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams(formData),
-        })
-            .then((response) => response.json())
-            .then((data) => {
-                const formContainer = document.getElementById('appointment-form-container');
-    
-                // Replace the form content with a success or error message
-                if (data.success) {
-                    const formattedMessage = data.data.message.replace(/\n/g, '<br>');
-                    formContainer.innerHTML = `<div class="appointment-message">${formattedMessage}</div>`;
-                } else {
-                    const formattedMessage = (data.data.message || 'There was an error scheduling your appointment. Please try again.').replace(/\n/g, '<br>');
-                    formContainer.innerHTML = `<div class="appointment-message">${formattedMessage}</div>`;
-                }
-            })
-            .catch((error) => {
-                alert('An error occurred while submitting the form: ' + error.message);
-            });
     });
     
     updateCalendarSections(currentDate);

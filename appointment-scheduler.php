@@ -6,7 +6,7 @@ Version: 3.2
 Author: Casper Molhoek
  
 Todo:
-- Fix admin menu appointment search function
+- done?
 */
 
 global $wpdb;
@@ -62,22 +62,6 @@ function event_scheduler_create_tables() {
     }
 }
 
-// Update database tables to add missing columns
-function event_scheduler_update_tables() {
-    global $wpdb;
-
-    // Add missing columns to EVENT_SCHEDULER_PENDING_TABLE
-    $alter_table_sql = "
-        ALTER TABLE " . EVENT_SCHEDULER_PENDING_TABLE . "
-        ADD COLUMN IF NOT EXISTS repeat_type VARCHAR(20) DEFAULT NULL,
-        ADD COLUMN IF NOT EXISTS end_date INT(11) DEFAULT NULL;
-    ";
-
-    // Execute the SQL query
-    $wpdb->query($alter_table_sql);
-}
-add_action('init', 'event_scheduler_update_tables');
-
 // AJAX handler for fetching full schedule
 add_action('wp_ajax_get_schedule', 'get_schedule');
 add_action('wp_ajax_nopriv_get_schedule', 'get_schedule');
@@ -114,13 +98,12 @@ function submit_appointment() {
     $city = sanitize_text_field($_POST['city']);
     $country = sanitize_text_field($_POST['country']);
     $email = sanitize_email($_POST['email']);
-    $unix_timestamp = (int) sanitize_text_field($_POST['unix_timestamp']);
-    $local_datetime = sanitize_text_field($_POST['local_datetime']);
-    $page_url = sanitize_text_field($_POST['page_url']);
-
-    // Optional repeat fields
+    $unix_timestamp = (int) sanitize_text_field($_POST['unix_timestamp']); // Unix timestamp to be saved
+    $local_start_dateTime = sanitize_text_field($_POST['local_start_dateTime']); // Pretty local timestamp for email and message
+    $local_end_dateTime = isset($_POST['local_end_dateTime']) ? sanitize_text_field($_POST['local_end_dateTime']) : null; // Pretty local timestamp for email and message
+    $end_date = isset($_POST['end_date']) ? (int) sanitize_text_field($_POST['end_date']) : null; // Unix timestamp for repeat appointments
     $repeat_type = isset($_POST['repeat_type']) ? sanitize_text_field($_POST['repeat_type']) : null;
-    $end_date = isset($_POST['end_date']) ? (int) sanitize_text_field($_POST['end_date']) : null;
+    $page_url = sanitize_text_field($_POST['page_url']);
 
     // Remove any query parameters from the base page URL
     $base_url = strtok($page_url, '?');
@@ -129,7 +112,7 @@ function submit_appointment() {
     $verification_token = wp_generate_password(20, false);
     $cancellation_token = wp_generate_password(20, false);
 
-    // Insert the initial appointment into the pending table
+    // Insert appointment into the pending table
     $result = $wpdb->insert(
         EVENT_SCHEDULER_PENDING_TABLE,
         [
@@ -141,14 +124,14 @@ function submit_appointment() {
             'verification_token' => $verification_token,
             'cancellation_token' => $cancellation_token,
             'repeat_type' => $repeat_type,
-            'end_date' => $end_date,
+            'end_date' => $end_date, // Add end_date for repeat appointments
         ]
     );
 
     if ($result === false) {
         $error_message = get_message_template('appointment_submit_failed', [
             'name' => $user_name,
-            'time' => $local_datetime,
+            'time' => $local_start_dateTime,
             'city' => $city,
             'country' => $country,
             'email' => $email,
@@ -175,18 +158,28 @@ function submit_appointment() {
         $page_url
     );
 
-    // Send email using a separate method
-    $email_sent = send_appointment_email($email, $user_name, $local_datetime, $city, $country, $repeat_type, $end_date, $verification_url, $cancellation_url);
+    // Send email using the local start and end times
+    $email_sent = send_appointment_email(
+        $email,
+        $user_name,
+        $local_start_dateTime,
+        $city,
+        $country,
+        $repeat_type,
+        $local_end_dateTime, 
+        $verification_url, 
+        $cancellation_url
+    );
 
     if ($email_sent) {
         $success_message = get_message_template('appointment_submit_success', [
             'name' => $user_name,
-            'time' => $local_datetime,
+            'time' => $local_start_dateTime,
             'city' => $city,
             'country' => $country,
             'email' => $email,
-            'repeat_type' => $repeat_type ? ($repeat_type === 'daily' ? 'Dagelijks' : 'Wekelijks') : 'Geen',
-            'end_date' => $end_date ? date('Y-m-d', $end_date) : 'N/A',
+            'repeat_type' => $repeat_type ? ($repeat_type === 'daily' ? 'Dagelijks tot en met' : 'Wekelijks tot en met') : '',
+            'end_date' => $local_end_dateTime ? $local_end_dateTime : '',
         ]);
 
         wp_send_json_success(['message' => $success_message]);
@@ -197,23 +190,22 @@ function submit_appointment() {
 add_action('wp_ajax_nopriv_submit_appointment', 'submit_appointment');
 add_action('wp_ajax_submit_appointment', 'submit_appointment');
 
-// Separate method for sending email
-function send_appointment_email($to, $name, $time, $city, $country, $repeat_type, $end_date, $verify_url, $cancel_url) {
+
+function send_appointment_email($to, $name, $local_start_dateTime, $city, $country, $repeat_type, $local_end_dateTime, $verify_url, $cancel_url) {
     $email_subject = "Bevestiging van uw aanmelding";
     $email_message = get_message_template('appointment_email_verification', [
         'name' => $name,
-        'time' => $time,
+        'time' => $local_start_dateTime ?: 'N/A', // Use the localized start time
         'city' => $city,
         'country' => $country,
-        'repeat_type' => $repeat_type ? ($repeat_type === 'daily' ? 'Dagelijks' : 'Wekelijks') : 'Geen',
-        'end_date' => $end_date ? date('Y-m-d', $end_date) : 'N/A',
+        'repeat_type' => $repeat_type ? ($repeat_type === 'daily' ? 'Dagelijks tot en met' : 'Wekelijks tot en met') : '',
+        'end_date' => $local_end_dateTime ?: '', // Use the localized end time
         'verify_url' => $verify_url,
         'cancel_url' => $cancel_url,
     ]);
 
     return wp_mail($to, $email_subject, $email_message);
 }
-
 
 // Handle verification link click
 function handle_appointment_verification() {
@@ -263,12 +255,12 @@ function handle_appointment_verification() {
             if ($repeat_type && $end_date) {
                 $current_date = (int) $appointment->appointment_datetime;
 
-                while ($current_date < $end_date) {
+                while ($current_date <= $end_date) {
                     $current_date = $repeat_type === 'daily'
                         ? strtotime('+1 day', $current_date)
                         : strtotime('+1 week', $current_date);
 
-                    if ($current_date >= $end_date) break;
+                    if ($current_date > $end_date) break;
 
                     // Check if the appointment already exists
                     $exists = $wpdb->get_var(
