@@ -126,7 +126,7 @@ document.addEventListener('DOMContentLoaded', function() {
             timeInCurrentDST.setHours(timeInCurrentDST.getHours() + 1);
         }
         
-        return timeInCurrentDST.toLocaleTimeString('nl-NL', { 
+        return timeInCurrentDST.toLocaleTimeString(undefined, { 
             hour: '2-digit', 
             minute: '2-digit' 
         });
@@ -165,7 +165,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 slots.push({
                     minutes: minutes,
-                    time: slotDate.toLocaleTimeString('nl-NL', { hour: 'numeric', minute: '2-digit' }),
+                    time: slotDate.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }),
                     unixTime: Math.floor(slotDate.getTime() / 1000),
                     isPastTime: Math.floor(slotDate.getTime() / 1000) < currentUnixTime,
                     isExtraSlot: false,
@@ -186,7 +186,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     slotDate.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0);
                     slots.push({
                         minutes: minutes,
-                        time: slotDate.toLocaleTimeString('nl-NL', { hour: 'numeric', minute: '2-digit' }),
+                        time: slotDate.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }),
                         unixTime: Math.floor(slotDate.getTime() / 1000),
                         isPastTime: Math.floor(slotDate.getTime() / 1000) < currentUnixTime,
                         isExtraSlot: false,
@@ -204,7 +204,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     slotDate.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0);
                     slots.push({
                         minutes: minutes,
-                        time: slotDate.toLocaleTimeString('nl-NL', { hour: 'numeric', minute: '2-digit' }),
+                        time: slotDate.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }),
                         unixTime: Math.floor(slotDate.getTime() / 1000),
                         isPastTime: Math.floor(slotDate.getTime() / 1000) < currentUnixTime,
                         isExtraSlot: false,
@@ -218,7 +218,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         extra2AM.setHours(2, 0, 0, 0);
                         slots.push({
                             minutes: 155, // Between 2:30 and 3:00
-                            time: extra2AM.toLocaleTimeString('nl-NL', { hour: 'numeric', minute: '2-digit' }),
+                            time: extra2AM.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }),
                             unixTime: Math.floor(extra2AM.getTime() / 1000) + 7200, // 3:00 unix time (add 2 hours)
                             isPastTime: Math.floor(extra2AM.getTime() / 1000) + 7200 < currentUnixTime,
                             isExtraSlot: true,
@@ -229,7 +229,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         extra2AM30.setHours(2, 30, 0, 0);
                         slots.push({
                             minutes: 165, // Between 2:30 and 3:00
-                            time: extra2AM30.toLocaleTimeString('nl-NL', { hour: 'numeric', minute: '2-digit' }),
+                            time: extra2AM30.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }),
                             unixTime: Math.floor(extra2AM30.getTime() / 1000) + 7200, // 3:30 unix time (add 2 hours)
                             isPastTime: Math.floor(extra2AM30.getTime() / 1000) + 7200 < currentUnixTime,
                             isExtraSlot: true,
@@ -484,12 +484,15 @@ document.addEventListener('DOMContentLoaded', function() {
         // Clear and append all at once for better performance
         table.innerHTML = '';
         table.appendChild(fragment);
+        
+        // Add total count row
+        addTotalCountRow(table, appointments);
 
         // Use event delegation for better performance
         table.addEventListener('click', function(e) {
             if (e.target.classList.contains('open-slot') || e.target.classList.contains('add-slot')) {
                 const unixTimestamp = e.target.getAttribute('data-unix');
-                const userFriendlyDate = new Date(unixTimestamp * 1000).toLocaleString('nl-NL');
+                const userFriendlyDate = new Date(unixTimestamp * 1000).toLocaleString();
                 document.getElementById('appointment_datetime').value = userFriendlyDate;
                 document.getElementById('unix_timestamp').value = unixTimestamp;
 
@@ -506,6 +509,31 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         });
+    }
+
+    function addTotalCountRow(table, appointments) {
+        // Calculate total number of appointments
+        const totalAppointments = appointments ? appointments.length : 0;
+        
+        // Create total count row
+        const totalRow = document.createElement('tr');
+        totalRow.style.backgroundColor = '#f8f9fa';
+        totalRow.style.fontWeight = 'bold';
+        totalRow.style.borderTop = '2px solid #0073aa';
+        
+        const timeCell = document.createElement('td');
+        timeCell.textContent = 'Totaal:';
+        timeCell.style.textAlign = 'right';
+        timeCell.style.padding = '8px';
+        
+        const countCell = document.createElement('td');
+        countCell.textContent = `${totalAppointments}x`;
+        countCell.style.padding = '8px';
+        countCell.style.color = '#0073aa';
+        
+        totalRow.appendChild(timeCell);
+        totalRow.appendChild(countCell);
+        table.appendChild(totalRow);
     }
 
     function findAppointment(appointments, minutes, sectionDate) {

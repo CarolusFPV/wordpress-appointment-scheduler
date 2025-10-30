@@ -393,7 +393,7 @@
 
                 // Add to form data
                 formData.set('unix_timestamp', unixTimestamp);
-                formData.set('local_start_dateTime', startDateTimeLocal.toLocaleString('nl-NL', { hour: 'numeric', minute: '2-digit', year: 'numeric', month: '2-digit', day: '2-digit' }));
+                formData.set('local_start_dateTime', startDateTimeLocal.toLocaleString(undefined, { hour: 'numeric', minute: '2-digit', year: 'numeric', month: '2-digit', day: '2-digit' }));
 
             } else {
                 alert('Geef een geldige datum en tijd op voor de afspraak.');
@@ -421,7 +421,7 @@
 
             // Add start date and time to form data
             formData.set('unix_timestamp', startUnixTimestamp);
-                formData.set('local_start_dateTime', startDateTimeLocal.toLocaleString('nl-NL', { hour: 'numeric', minute: '2-digit', year: 'numeric', month: '2-digit', day: '2-digit' }));
+                formData.set('local_start_dateTime', startDateTimeLocal.toLocaleString(undefined, { hour: 'numeric', minute: '2-digit', year: 'numeric', month: '2-digit', day: '2-digit' }));
 
             // Handle the end date
             const endDateInput = document.getElementById('end_date').value;
@@ -434,7 +434,7 @@
 
                 // Add end date to form data
                 formData.set('end_date', endUnixTimestamp);
-                formData.set('local_end_dateTime', endDateTimeLocal.toLocaleString('nl-NL', { hour: 'numeric', minute: '2-digit', year: 'numeric', month: '2-digit', day: '2-digit' }));
+                formData.set('local_end_dateTime', endDateTimeLocal.toLocaleString(undefined, { hour: 'numeric', minute: '2-digit', year: 'numeric', month: '2-digit', day: '2-digit' }));
             } else {
                 formData.delete('end_date');
                 formData.delete('local_end_dateTime');
