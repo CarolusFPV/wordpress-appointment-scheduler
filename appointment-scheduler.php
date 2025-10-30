@@ -2,7 +2,7 @@
 /*
 Plugin Name: Event Scheduler
 Description: Allow users to schedule a timeframe to take part of an event. The entire schedule is displayed in the [event_scheduler] shortcode.
-Version: 3.2
+Version: 3.3
 Author: Casper Molhoek
  
 Todo:
@@ -66,6 +66,8 @@ function event_scheduler_create_tables() {
 add_action('wp_ajax_get_schedule', 'get_schedule');
 add_action('wp_ajax_nopriv_get_schedule', 'get_schedule');
 
+// Removed week schedule endpoint since appointments are dynamic
+
 function get_schedule() {
     global $wpdb;
 
@@ -88,6 +90,8 @@ function get_schedule() {
     wp_send_json_success(['appointments' => $appointments]); // Return appointments as part of the response
     wp_die();
 }
+
+// Removed get_week_schedule function since appointments are dynamic
 
 // Handle form submission
 function submit_appointment() {
@@ -147,7 +151,7 @@ function submit_appointment() {
             'verify_appointment' => 1,
             'token' => $verification_token,
         ],
-        $page_url
+        $base_url
     );
 
     $cancellation_url = add_query_arg(
@@ -155,7 +159,7 @@ function submit_appointment() {
             'cancel_appointment' => 1,
             'token' => $cancellation_token,
         ],
-        $page_url
+        $base_url
     );
 
     // Send email using the local start and end times

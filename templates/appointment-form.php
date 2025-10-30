@@ -293,6 +293,35 @@
     </form>
 </div>
 
+<style>
+.dst-info {
+    color: #0073aa;
+    cursor: help;
+    margin-left: 5px;
+}
+
+.dst-problematic {
+    background-color: #f0f0f0 !important;
+    color: #666 !important;
+    cursor: not-allowed !important;
+}
+
+.dst-problematic:hover {
+    background-color: #f0f0f0 !important;
+    color: #666 !important;
+}
+
+.extra-hour {
+    background-color: #e8f4fd;
+    border-left: 3px solid #0073aa;
+}
+
+.extra-hour td:first-child {
+    font-weight: bold;
+    color: #0073aa;
+}
+</style>
+
 <script type="text/javascript">
     function toggleRepeatOptions(show) {
         const repeatOptions = document.getElementById('repeat-options');
@@ -364,9 +393,10 @@
 
                 // Add to form data
                 formData.set('unix_timestamp', unixTimestamp);
-                formData.set('local_start_dateTime', startDateTimeLocal.toLocaleString());
+                formData.set('local_start_dateTime', startDateTimeLocal.toLocaleString('nl-NL', { hour: 'numeric', minute: '2-digit', year: 'numeric', month: '2-digit', day: '2-digit' }));
+
             } else {
-                alert('Please provide a valid appointment date and time.');
+                alert('Geef een geldige datum en tijd op voor de afspraak.');
                 return;
             }
 
@@ -391,7 +421,7 @@
 
             // Add start date and time to form data
             formData.set('unix_timestamp', startUnixTimestamp);
-            formData.set('local_start_dateTime', startDateTimeLocal.toLocaleString());
+                formData.set('local_start_dateTime', startDateTimeLocal.toLocaleString('nl-NL', { hour: 'numeric', minute: '2-digit', year: 'numeric', month: '2-digit', day: '2-digit' }));
 
             // Handle the end date
             const endDateInput = document.getElementById('end_date').value;
@@ -404,16 +434,12 @@
 
                 // Add end date to form data
                 formData.set('end_date', endUnixTimestamp);
-                formData.set('local_end_dateTime', endDateTimeLocal.toLocaleString());
+                formData.set('local_end_dateTime', endDateTimeLocal.toLocaleString('nl-NL', { hour: 'numeric', minute: '2-digit', year: 'numeric', month: '2-digit', day: '2-digit' }));
             } else {
                 formData.delete('end_date');
                 formData.delete('local_end_dateTime');
             }
         }
-
-
-
-
 
         // Submit the form via AJAX
         fetch(scheduler_data.ajaxurl, {
@@ -431,7 +457,7 @@
                 }
             })
             .catch((error) => {
-                alert('Error: ' + error.message);
+                alert('Fout: ' + error.message);
             });
     });
 </script>

@@ -39,6 +39,15 @@ add_action('admin_menu', function() {
         'custom-scheduler-message-templates', 
         'custom_scheduler_message_templates_page'
     );
+
+    add_submenu_page(
+        'custom-scheduler-schedule', 
+        'Import/Export', 
+        'Import/Export', 
+        $capability, 
+        'custom-scheduler-import-export', 
+        'custom_scheduler_import_export_page'
+    );
 });
 
 
@@ -246,6 +255,418 @@ function custom_scheduler_schedule_page() {
         <?php endif; ?>
     </div>
     <?php
+}
+
+// Import/Export Page
+function custom_scheduler_import_export_page() {
+    global $wpdb;
+    
+    // Handle export
+    if (isset($_POST['export_appointments'])) {
+        custom_scheduler_export_appointments();
+        return;
+    }
+    
+    // Handle import
+    if (isset($_POST['import_appointments']) && isset($_FILES['import_file'])) {
+        $result = custom_scheduler_import_appointments($_FILES['import_file']);
+        if ($result['success']) {
+            echo '<div class="updated"><p>' . $result['message'] . '</p></div>';
+        } else {
+            echo '<div class="error"><p>' . $result['message'] . '</p></div>';
+        }
+    }
+    
+    // Handle JSON validation
+    if (isset($_POST['validate_json']) && isset($_FILES['validate_file'])) {
+        $result = custom_scheduler_validate_json($_FILES['validate_file']);
+        if ($result['success']) {
+            echo '<div class="updated"><p>' . $result['message'] . '</p></div>';
+        } else {
+            echo '<div class="error"><p>' . $result['message'] . '</p></div>';
+        }
+    }
+    
+    // Get appointment counts for display
+    $confirmed_count = $wpdb->get_var("SELECT COUNT(*) FROM " . EVENT_SCHEDULER_TABLE);
+    $pending_count = $wpdb->get_var("SELECT COUNT(*) FROM " . EVENT_SCHEDULER_PENDING_TABLE);
+    
+    ?>
+    <div class="wrap">
+        <h2>Import/Export Appointments</h2>
+        
+        <div class="card">
+            <h3>Current Data</h3>
+            <p><strong>Confirmed Appointments:</strong> <?php echo $confirmed_count; ?></p>
+            <p><strong>Pending Appointments:</strong> <?php echo $pending_count; ?></p>
+        </div>
+        
+        <div class="card">
+            <h3>Export Appointments</h3>
+            <p>Export all confirmed and pending appointments to a JSON file for backup or migration.</p>
+            <form method="post" action="">
+                <input type="hidden" name="export_appointments" value="1">
+                <input type="submit" value="Export All Appointments" class="button-primary">
+            </form>
+        </div>
+        
+        <div class="card">
+            <h3>Import Appointments</h3>
+            <p>Import appointments from a previously exported JSON file. This will add appointments to your current data.</p>
+            <form method="post" action="" enctype="multipart/form-data">
+                <input type="hidden" name="import_appointments" value="1">
+                <input type="file" name="import_file" accept=".json" required>
+                <br><br>
+                <label>
+                    <input type="checkbox" name="overwrite_existing" value="1">
+                    Overwrite existing appointments (by email and datetime)
+                </label>
+                <br><br>
+                <input type="submit" value="Import Appointments" class="button-primary">
+            </form>
+        </div>
+        
+        <div class="card">
+            <h3>Validate JSON File</h3>
+            <p>Check if a JSON file is valid before importing. This helps identify issues with corrupted or malformed files.</p>
+            <form method="post" action="" enctype="multipart/form-data">
+                <input type="hidden" name="validate_json" value="1">
+                <input type="file" name="validate_file" accept=".json" required>
+                <br><br>
+                <input type="submit" value="Validate JSON File" class="button">
+            </form>
+        </div>
+        
+        <div class="card">
+            <h3>Instructions</h3>
+            <ul>
+                <li><strong>Export:</strong> Downloads a JSON file containing all your appointment data</li>
+                <li><strong>Import:</strong> Upload a JSON file to restore or migrate appointment data</li>
+                <li><strong>Overwrite option:</strong> When checked, will replace existing appointments with the same email and datetime</li>
+                <li><strong>Backup recommended:</strong> Always backup your database before importing data</li>
+            </ul>
+        </div>
+    </div>
+    
+    <style>
+    .card {
+        background: #fff;
+        border: 1px solid #ccd0d4;
+        box-shadow: 0 1px 1px rgba(0,0,0,.04);
+        margin: 20px 0;
+        padding: 20px;
+    }
+    .card h3 {
+        margin-top: 0;
+    }
+    </style>
+    <?php
+}
+
+// Export appointments function
+function custom_scheduler_export_appointments() {
+    global $wpdb;
+    
+    // Prevent any output before headers
+    if (ob_get_level()) {
+        ob_end_clean();
+    }
+    
+    // Get all confirmed appointments
+    $confirmed_appointments = $wpdb->get_results(
+        "SELECT * FROM " . EVENT_SCHEDULER_TABLE . " ORDER BY appointment_datetime",
+        ARRAY_A
+    );
+    
+    // Get all pending appointments
+    $pending_appointments = $wpdb->get_results(
+        "SELECT * FROM " . EVENT_SCHEDULER_PENDING_TABLE . " ORDER BY appointment_datetime",
+        ARRAY_A
+    );
+    
+    // Prepare export data
+    $export_data = [
+        'export_info' => [
+            'export_date' => current_time('mysql'),
+            'plugin_version' => '3.3',
+            'wordpress_version' => get_bloginfo('version'),
+            'site_url' => get_site_url(),
+            'total_confirmed' => count($confirmed_appointments),
+            'total_pending' => count($pending_appointments)
+        ],
+        'confirmed_appointments' => $confirmed_appointments,
+        'pending_appointments' => $pending_appointments
+    ];
+    
+    // Generate JSON
+    $json_data = json_encode($export_data, JSON_PRETTY_PRINT);
+    
+    // Validate JSON before sending
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        wp_die('Error generating JSON: ' . json_last_error_msg());
+    }
+    
+    // Set headers for file download
+    $filename = 'event-scheduler-export-' . date('Y-m-d-H-i-s') . '.json';
+    
+    // Clear any existing output
+    if (headers_sent()) {
+        wp_die('Headers already sent. Cannot download file.');
+    }
+    
+    header('Content-Type: application/json; charset=utf-8');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Content-Length: ' . strlen($json_data));
+    header('Cache-Control: no-cache, must-revalidate');
+    header('Expires: Sat, 26 Jul 1997 05:00:00 GMT');
+    header('Pragma: no-cache');
+    
+    // Output JSON data
+    echo $json_data;
+    exit;
+}
+
+// Import appointments function
+function custom_scheduler_import_appointments($file) {
+    global $wpdb;
+    
+    // Validate file
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        return ['success' => false, 'message' => 'File upload error: ' . $file['error']];
+    }
+    
+    if ($file['type'] !== 'application/json' && pathinfo($file['name'], PATHINFO_EXTENSION) !== 'json') {
+        return ['success' => false, 'message' => 'Please upload a valid JSON file.'];
+    }
+    
+    // Read and parse JSON file
+    $json_content = file_get_contents($file['tmp_name']);
+    
+    // Check if file is empty
+    if (empty($json_content)) {
+        return ['success' => false, 'message' => 'The uploaded file is empty.'];
+    }
+    
+    // Check if file is HTML (common issue)
+    if (stripos($json_content, '<!DOCTYPE html') === 0 || 
+        stripos($json_content, '<html') === 0 || 
+        stripos($json_content, '<head') === 0) {
+        return ['success' => false, 'message' => 'The uploaded file appears to be an HTML page instead of a JSON file. This usually happens when the export didn\'t work properly. Please try exporting again from the source server.'];
+    }
+    
+    // Try to decode JSON
+    $import_data = json_decode($json_content, true);
+    
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        $error_message = 'Invalid JSON file: ' . json_last_error_msg();
+        
+        // Add more specific error information
+        if (json_last_error() === JSON_ERROR_SYNTAX) {
+            $error_message .= '<br><br><strong>Common causes:</strong><ul>';
+            $error_message .= '<li>File was corrupted during download/upload</li>';
+            $error_message .= '<li>File contains invalid characters</li>';
+            $error_message .= '<li>File was edited manually and has syntax errors</li>';
+            $error_message .= '</ul>';
+            $error_message .= '<br><strong>Try:</strong> Re-export the data from the source server and use that fresh file.';
+        }
+        
+        // Show first 500 characters for debugging (in a safe way)
+        $preview = substr($json_content, 0, 500);
+        $preview = esc_html($preview);
+        if (strlen($json_content) > 500) {
+            $preview .= '...';
+        }
+        
+        $error_message .= '<br><br><strong>File preview (first 500 characters):</strong><br>';
+        $error_message .= '<pre style="background: #f1f1f1; padding: 10px; border: 1px solid #ddd; max-height: 200px; overflow-y: auto;">' . $preview . '</pre>';
+        
+        return ['success' => false, 'message' => $error_message];
+    }
+    
+    // Validate import data structure
+    if (!isset($import_data['confirmed_appointments']) || !isset($import_data['pending_appointments'])) {
+        return ['success' => false, 'message' => 'Invalid import file format. Missing required data sections.'];
+    }
+    
+    $overwrite = isset($_POST['overwrite_existing']) && $_POST['overwrite_existing'] === '1';
+    $imported_confirmed = 0;
+    $imported_pending = 0;
+    $skipped_confirmed = 0;
+    $skipped_pending = 0;
+    
+    // Import confirmed appointments
+    foreach ($import_data['confirmed_appointments'] as $appointment) {
+        // Validate required fields
+        if (empty($appointment['user_name']) || empty($appointment['email']) || empty($appointment['appointment_datetime'])) {
+            continue;
+        }
+        
+        // Check if appointment already exists
+        $exists = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM " . EVENT_SCHEDULER_TABLE . " WHERE email = %s AND appointment_datetime = %d",
+            $appointment['email'],
+            $appointment['appointment_datetime']
+        ));
+        
+        if ($exists && !$overwrite) {
+            $skipped_confirmed++;
+            continue;
+        }
+        
+        // Prepare data for insertion
+        $appointment_data = [
+            'user_name' => sanitize_text_field($appointment['user_name']),
+            'city' => sanitize_text_field($appointment['city'] ?? ''),
+            'country' => sanitize_text_field($appointment['country'] ?? ''),
+            'appointment_datetime' => intval($appointment['appointment_datetime']),
+            'email' => sanitize_email($appointment['email']),
+            'cancellation_token' => sanitize_text_field($appointment['cancellation_token'] ?? wp_generate_password(20, false))
+        ];
+        
+        if ($exists && $overwrite) {
+            // Update existing appointment
+            $wpdb->update(
+                EVENT_SCHEDULER_TABLE,
+                $appointment_data,
+                ['email' => $appointment['email'], 'appointment_datetime' => $appointment['appointment_datetime']]
+            );
+        } else {
+            // Insert new appointment
+            $wpdb->insert(EVENT_SCHEDULER_TABLE, $appointment_data);
+        }
+        
+        $imported_confirmed++;
+    }
+    
+    // Import pending appointments
+    foreach ($import_data['pending_appointments'] as $appointment) {
+        // Validate required fields
+        if (empty($appointment['user_name']) || empty($appointment['email']) || empty($appointment['appointment_datetime'])) {
+            continue;
+        }
+        
+        // Check if appointment already exists
+        $exists = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM " . EVENT_SCHEDULER_PENDING_TABLE . " WHERE email = %s AND appointment_datetime = %d",
+            $appointment['email'],
+            $appointment['appointment_datetime']
+        ));
+        
+        if ($exists && !$overwrite) {
+            $skipped_pending++;
+            continue;
+        }
+        
+        // Prepare data for insertion
+        $appointment_data = [
+            'user_name' => sanitize_text_field($appointment['user_name']),
+            'city' => sanitize_text_field($appointment['city'] ?? ''),
+            'country' => sanitize_text_field($appointment['country'] ?? ''),
+            'appointment_datetime' => intval($appointment['appointment_datetime']),
+            'email' => sanitize_email($appointment['email']),
+            'verification_token' => sanitize_text_field($appointment['verification_token'] ?? wp_generate_password(20, false)),
+            'cancellation_token' => sanitize_text_field($appointment['cancellation_token'] ?? wp_generate_password(20, false)),
+            'repeat_type' => sanitize_text_field($appointment['repeat_type'] ?? null),
+            'end_date' => !empty($appointment['end_date']) ? intval($appointment['end_date']) : null
+        ];
+        
+        if ($exists && $overwrite) {
+            // Update existing appointment
+            $wpdb->update(
+                EVENT_SCHEDULER_PENDING_TABLE,
+                $appointment_data,
+                ['email' => $appointment['email'], 'appointment_datetime' => $appointment['appointment_datetime']]
+            );
+        } else {
+            // Insert new appointment
+            $wpdb->insert(EVENT_SCHEDULER_PENDING_TABLE, $appointment_data);
+        }
+        
+        $imported_pending++;
+    }
+    
+    $message = sprintf(
+        'Import completed! Confirmed: %d imported, %d skipped. Pending: %d imported, %d skipped.',
+        $imported_confirmed,
+        $skipped_confirmed,
+        $imported_pending,
+        $skipped_pending
+    );
+    
+    return ['success' => true, 'message' => $message];
+}
+
+// Validate JSON file function
+function custom_scheduler_validate_json($file) {
+    // Validate file
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        return ['success' => false, 'message' => 'File upload error: ' . $file['error']];
+    }
+    
+    if ($file['type'] !== 'application/json' && pathinfo($file['name'], PATHINFO_EXTENSION) !== 'json') {
+        return ['success' => false, 'message' => 'Please upload a valid JSON file.'];
+    }
+    
+    // Read and parse JSON file
+    $json_content = file_get_contents($file['tmp_name']);
+    
+    // Check if file is empty
+    if (empty($json_content)) {
+        return ['success' => false, 'message' => 'The uploaded file is empty.'];
+    }
+    
+    // Check if file is HTML (common issue)
+    if (stripos($json_content, '<!DOCTYPE html') === 0 || 
+        stripos($json_content, '<html') === 0 || 
+        stripos($json_content, '<head') === 0) {
+        return ['success' => false, 'message' => 'The uploaded file appears to be an HTML page instead of a JSON file. This usually happens when the export didn\'t work properly. Please try exporting again from the source server.'];
+    }
+    
+    // Try to decode JSON
+    $import_data = json_decode($json_content, true);
+    
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        $error_message = '<strong>JSON Validation Failed:</strong><br>';
+        $error_message .= 'Error: ' . json_last_error_msg() . '<br><br>';
+        
+        // Show character position if available
+        $error_position = json_last_error_msg();
+        if (preg_match('/position (\d+)/', $error_position, $matches)) {
+            $position = intval($matches[1]);
+            $start = max(0, $position - 50);
+            $end = min(strlen($json_content), $position + 50);
+            $context = substr($json_content, $start, $end - $start);
+            $context = esc_html($context);
+            $error_message .= '<strong>Error around position ' . $position . ':</strong><br>';
+            $error_message .= '<pre style="background: #f1f1f1; padding: 10px; border: 1px solid #ddd;">' . $context . '</pre>';
+        }
+        
+        return ['success' => false, 'message' => $error_message];
+    }
+    
+    // Check if it's a valid export file
+    $is_export_file = isset($import_data['export_info']) && 
+                      isset($import_data['confirmed_appointments']) && 
+                      isset($import_data['pending_appointments']);
+    
+    if ($is_export_file) {
+        $confirmed_count = count($import_data['confirmed_appointments']);
+        $pending_count = count($import_data['pending_appointments']);
+        $export_date = $import_data['export_info']['export_date'] ?? 'Unknown';
+        $site_url = $import_data['export_info']['site_url'] ?? 'Unknown';
+        
+        $message = '<strong>✅ Valid Event Scheduler Export File</strong><br><br>';
+        $message .= '<strong>Export Details:</strong><br>';
+        $message .= '• Export Date: ' . esc_html($export_date) . '<br>';
+        $message .= '• Source Site: ' . esc_html($site_url) . '<br>';
+        $message .= '• Confirmed Appointments: ' . $confirmed_count . '<br>';
+        $message .= '• Pending Appointments: ' . $pending_count . '<br><br>';
+        $message .= 'This file is ready to import!';
+        
+        return ['success' => true, 'message' => $message];
+    } else {
+        return ['success' => false, 'message' => 'This is a valid JSON file, but it doesn\'t appear to be an Event Scheduler export file. Make sure you\'re using a file exported from this plugin.'];
+    }
 }
 
 ?>
