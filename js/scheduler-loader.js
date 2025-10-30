@@ -441,7 +441,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if (matchingAppointments && matchingAppointments.length > 0) {
                 // Show first person's name
                 const firstAppointment = matchingAppointments[0];
-                appointmentText = `${firstAppointment.user_name}, ${firstAppointment.city}, ${firstAppointment.country}`;
+                const userName = cleanEscapedCharacters(firstAppointment.user_name);
+                const city = cleanEscapedCharacters(firstAppointment.city);
+                const country = cleanEscapedCharacters(firstAppointment.country);
+                
+                // Format with conditional comma for city
+                appointmentText = city ? `${userName}, ${city}, ${country}` : `${userName}, ${country}`;
                 
                 // Add DST info marker if needed
                 if (sectionDate) {
@@ -511,6 +516,14 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    function cleanEscapedCharacters(text) {
+        if (!text) return text;
+        return text
+            .replace(/\\'/g, "'")  // Replace \' with '
+            .replace(/\\"/g, '"')  // Replace \" with "
+            .replace(/\\\\/g, '\\'); // Replace \\ with \
+    }
+
     function addTotalCountRow(table, appointments) {
         // Calculate total number of appointments
         const totalAppointments = appointments ? appointments.length : 0;
@@ -542,7 +555,12 @@ document.addEventListener('DOMContentLoaded', function() {
             const appointmentMinutes = appointmentTime.getHours() * 60 + appointmentTime.getMinutes();
     
             if (appointmentMinutes === minutes) {
-                let appointmentText = `${appointment.user_name}, ${appointment.city}, ${appointment.country}`;
+                const userName = cleanEscapedCharacters(appointment.user_name);
+                const city = cleanEscapedCharacters(appointment.city);
+                const country = cleanEscapedCharacters(appointment.country);
+                
+                // Format with conditional comma for city
+                let appointmentText = city ? `${userName}, ${city}, ${country}` : `${userName}, ${country}`;
                 
                 // Add DST info marker if needed
                 if (sectionDate) {
